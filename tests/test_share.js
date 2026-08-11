@@ -16,7 +16,8 @@ H.ctx.confirm=()=>true;
 
 (async function main(){
 console.log('=== 1. 비밀은 앱에 없다 ===');
-t('anon 키 자리만 있고 값은 비어 있음', /const SB_DEFAULT = \{ url: '', anon: '' \}/.test(html));
+t('서버 주소가 앱에 내장됨', /url: 'https:\/\/[a-z0-9]+\.supabase\.co'/.test(html));
+t('publishable 키만 내장(secret 키 아님)', /anon: 'sb_publishable_[A-Za-z0-9_]+'/.test(html) && !/anon: 'sb_secret_/.test(html));
 t('API 키 값이 앱에 없음', !/sk-ant-[A-Za-z0-9_-]{10,}/.test(html));
 t('앱이 API 키를 저장·전송하지 않음', (()=>{
   // 키 이름이 안내 문구에 나오는 건 괜찮다. 실제로 다루지만 않으면 된다.
@@ -32,7 +33,7 @@ t('API 키는 함수 시크릿에서만', fn.includes("Deno.env.get('ANTHROPIC_A
 t('키 없으면 거부', fn.includes('ANTHROPIC_API_KEY 가 설정되지 않았습니다'));
 
 console.log('=== 2. 서버 설정 ===');
-t('설정 없으면 비활성', A.sbReady()===false);
+t('서버 정보 내장으로 기본 연결됨', A.sbReady()===true);
 el('sb-url').value='https://abcdefgh.supabase.co';
 el('sb-anon').value='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abcdefghijklmnopqrstuvwxyz0123456789';
 A.saveShareSetup();
@@ -86,7 +87,9 @@ console.log('=== 5. 공유 링크 만들기 ===');
 let sent=null;
 // 실제 PostgREST 는 Prefer: return=minimal 삽입에 201 + 빈 본문을 준다.
 // 브라우저는 빈 본문에 .json() 을 부르면 예외를 던진다 → 그대로 재현해 회귀를 막는다.
-H.ctx.fetch=async(u,o)=>{ sent={u,o}; return {ok:true,status:201,
+// 서버 정보가 앱에 내장돼 boot() 가 장비 로드 GET 을 쏘므로, 쓰기(POST/PATCH)만 기록한다.
+H.ctx.fetch=async(u,o)=>{ if(o&&(o.method==='POST'||o.method==='PATCH')) sent={u,o};
+  return {ok:true,status:201,
   json:async()=>{throw new Error('Unexpected end of JSON input')},text:async()=>''} ; };
 H.ctx.location={origin:'https://ehstudio.github.io',pathname:'/gear/',search:''};
 H.ctx.Blob=function(a){ this.size=JSON.stringify(a).length; };
@@ -110,6 +113,13 @@ t('보기 전용 명시', el('share-meta').textContent.includes('보기 전용')
 
 console.log('=== 6. 링크 회수 ===');
 const sid=A.st().shares[0].id;
+// 회수는 로그인한 스튜디오 계정만 가능(서버가 익명 UPDATE 를 막음).
+// 로그아웃 상태에선 PATCH 가 아예 안 나가야 한다.
+sent=null; A.st().auth={};
+await A.revokeShare(sid);
+t('로그아웃이면 회수 차단', sent===null);
+// 로그인하면 정상 회수
+A.st().auth={access:'ACCESS',email:'dev@ehstudio.net',expires:Date.now()+3600000};
 sent=null;
 await A.revokeShare(sid);
 t('PATCH 요청', sent && sent.o.method==='PATCH');

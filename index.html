@@ -2692,7 +2692,12 @@ function switchMode(m) {
 //  URL·anon 키는 공개돼도 되는 값입니다 (RLS 로 보호).
 //  API 키 같은 비밀은 절대 여기 넣지 마세요 — Edge Function 시크릿에만 둡니다.
 // ═══════════════════════════════════════════════════
-const SB_DEFAULT = { url: '', anon: '' };
+// 서버 접속 정보 — 앱에 내장한다. 이 두 값은 공개돼도 안전하다(RLS 로 보호,
+// publishable 키는 애초에 공개용). secret 키(sb_secret_…)는 절대 여기 두지 않는다.
+const SB_DEFAULT = {
+    url: 'https://hjngckjymvveafjtfxfh.supabase.co',
+    anon: 'sb_publishable_d0h34gAFmb3g5674LVgN4A_PUQgzyyX',
+};
 function sbCfg() {
     const c = state.sb || {};
     return { url: (c.url || SB_DEFAULT.url).replace(/\/+$/, ''), anon: c.anon || SB_DEFAULT.anon };
@@ -2812,8 +2817,12 @@ function copyShareLink() {
 }
 function closeShare() { document.getElementById('share-modal').classList.remove('on'); }
 async function revokeShare(id) {
+    // 회수 = 씬을 is_public=false 로 UPDATE. 서버는 로그인한 스튜디오 계정에만
+    // 수정 권한을 준다(익명은 permission denied 42501). 먼저 로그인부터 요구한다.
+    if (!requireLogin('링크를 회수')) return;
     if (!confirm('이 링크를 지금 죽입니다. 받은 사람은 더 이상 볼 수 없습니다.\n계속할까요?')) return;
     try {
+        if (!(await ensureAuth())) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
         await sbFetch(`/rest/v1/gear_scenes?id=eq.${encodeURIComponent(id)}`, {
             method: 'PATCH', headers: { Prefer: 'return=minimal' },
             body: JSON.stringify({ is_public: false }),
@@ -5062,15 +5071,10 @@ function renderScenePane() {
             <button class="danger" onclick="deleteScene()">씬 삭제</button></div>
           <div class="pane-sec">외부 공유</div>
           <div class="slot-help" style="margin-bottom:8px">
-            ${sbReady()
-              ? '링크를 만들면 클라이언트·협력사가 <b>보기만</b> 할 수 있습니다.<br>언제든 회수할 수 있어요.'
-              : '<b>서버 연결이 아직 없습니다.</b><br>설정하면 짧은 링크로 배치를 공유할 수 있어요.'}
+            링크를 만들면 클라이언트·협력사가 <b>보기만</b> 할 수 있습니다.<br>회수는 로그인 후 언제든 가능합니다.
           </div>
           <div class="pane-btns">
-            ${sbReady()
-              ? `<button class="primary" onclick="createShareLink()">🔗 공유 링크 만들기</button>
-                 <button onclick="openShareSetup()">⚙ 서버</button>`
-              : `<button class="primary" onclick="openShareSetup()">⚙ 서버 연결하기</button>`}
+            <button class="primary" onclick="createShareLink()">🔗 공유 링크 만들기</button>
           </div>
           ${(state.shares || []).length ? `<div class="pane-sec">보낸 링크</div>` +
             (state.shares || []).slice(0, 6).map(x => `

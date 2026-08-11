@@ -192,11 +192,12 @@ t('내리기 버튼', html.includes('retireEquipment('));
 t('비밀번호 입력은 password 타입', html.includes('id="lg-pw" type="password"'));
 t('엔터로 로그인', html.includes("if(event.key==='Enter')doLogin()"));
 
-console.log('=== 11. 서버 없이도 동작 ===');
-A.st().sb={url:'',anon:''};
+console.log('=== 11. 서버 불통 시 로컬 폴백 ===');
+// 서버 접속 정보는 앱에 내장돼 늘 sbReady()=true 다. 하지만 서버가 실제로
+// 응답하지 않으면 eqSource='local' 로 떨어지고, 그때는 로그인 없이 이 브라우저에만 저장한다.
+t('서버 정보는 내장되어 있음', A.sbReady()===true);
 A.setSrc('local');
-t('서버 미연결', A.sbReady()===false);
-t('로그인 요구 안 함', A.requireLogin('수정')===true);
+t('로컬 폴백으로 전환', A.eqIsServer()===false);
 { const e=A.EQ()[0]; const before=e.nick;
   A.setEq(e.id,'nick','오프라인수정');
   t('브라우저에만 저장', e.nick==='오프라인수정');
