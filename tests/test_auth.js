@@ -1,7 +1,7 @@
 const {APP,SUPA}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
 const H=makeHarness(`switchMode,sbLogin,sbRefresh,sbLogout,ensureAuth,authToken,isLoggedIn,authEmail,
- openLogin,closeLogin,doLogin,syncAuthUI,requireLogin,sbHeaders,saveShareSetup,sbCfg,sbReady,
+ openLogin,closeLogin,doLogin,syncAuthUI,requireLogin,sbHeaders,sbCfg,sbReady,
  loadEquipmentFromServer,eqIsServer,saveEqToServer,addEquipment,retireEquipment,setEq,
  renderList,renderPalette,updateListSummary,applyEqEdits,dispName,specOf,
  EQ:()=>EQUIPMENT,SP:()=>SPECS,st:()=>state,cur:currentScene,
@@ -41,9 +41,7 @@ function mockServer(){
   };
 }
 mockServer();
-el('sb-url').value='https://abcdefgh.supabase.co';
-el('sb-anon').value='sb_publishable_d0h34gAFmb3g5674LVgN4A_PUQgz';
-A.saveShareSetup();
+// 서버 접속 정보는 앱(SB_DEFAULT)에 내장돼 있어 별도 설정이 필요 없다.
 
 (async function main(){
 
@@ -180,7 +178,7 @@ console.log('=== 10. 화면 ===');
 t('로그인 칩', html.includes('id="auth-chip"'));
 A.syncAuthUI();
 t('로그인 상태 표시', el('auth-chip').innerHTML.includes('dev'), el('auth-chip').innerHTML);
-t('서버 연결 전엔 숨김', html.includes("b.style.display = sbReady() ? 'inline-flex' : 'none'"));
+t('로그인 칩 항상 표시(서버 내장)', html.includes("b.style.display = 'inline-flex'"));
 A.renderList();
 { const sum=H.store['list-summary'].innerHTML;
   t('데이터 출처 표시', sum.includes('서버 · 수정 가능'), sum.slice(-120)); }

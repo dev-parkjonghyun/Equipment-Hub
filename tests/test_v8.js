@@ -62,7 +62,7 @@ console.log('=== 6. JSON 설명 ===');
 A.openPane('scenes');
 const sp=H.store['scene-body'].innerHTML;
 t('백업·공유 섹션', sp.includes('백업 · 공유'));
-t('필요 이유 설명', sp.includes('이 브라우저에만 저장')&&sp.includes('다른 컴퓨터로 옮기거나'));
+t('필요 이유 설명', sp.includes('이 브라우저에만')&&sp.includes('로그인하면 서버에 저장'));
 t('버튼 문구 명확화', sp.includes('파일로 저장')&&sp.includes('파일 불러오기'));
 
 console.log('=== 7. 평면도 라벨 겹침 ===');

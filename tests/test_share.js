@@ -1,7 +1,7 @@
 const {APP,SUPA}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
 const H=makeHarness(`switchMode,sbCfg,sbReady,shareId,sceneForShare,createShareLink,copyShareLink,
- closeShare,revokeShare,loadSharedScene,openShareSetup,closeShareSetup,saveShareSetup,isViewOnly,
+ closeShare,revokeShare,loadSharedScene,isViewOnly,
  pickGearPhoto,sendGearPhoto,renderPhotoResult,photoChecked,photoToSet,photoToLayout,closePhoto,
  addBlockAt,setEq,startFloorDrag,startFreeDrag,renderScenePane,openPane,addSubject,syncFromLayout,
  F:F,cur:currentScene,st:()=>state,EQ:()=>EQUIPMENT,setVO:v=>{viewOnly=v},
@@ -24,7 +24,6 @@ t('앱이 API 키를 저장·전송하지 않음', (()=>{
   const bad = /ANTHROPIC_API_KEY\s*[:=]|state\.\w*apiKey|headers[^}]*x-api-key/i;
   return !bad.test(html);})());
 t('키 이름은 안내 목적으로만', (html.match(/ANTHROPIC_API_KEY/g)||[]).length<=2);
-t('비밀 키 경고', html.includes('Secret key(sb_secret_…)는 절대 넣지 마세요')||html.includes('이 키는 접근 제한을 무시하므로'));
 t('anon 키는 공개돼도 된다고 안내', html.includes('anon 키는 공개돼도 되는 값'));
 const fn=fs.readFileSync(SUPA('functions/read-gear-photo/index.ts'),'utf-8');
 const sql=fs.readFileSync(SUPA('schema.sql'),'utf-8');
@@ -32,33 +31,12 @@ const audit=fs.readFileSync(SUPA('00-audit-existing.sql'),'utf-8');
 t('API 키는 함수 시크릿에서만', fn.includes("Deno.env.get('ANTHROPIC_API_KEY')"));
 t('키 없으면 거부', fn.includes('ANTHROPIC_API_KEY 가 설정되지 않았습니다'));
 
-console.log('=== 2. 서버 설정 ===');
+console.log('=== 2. 서버 설정(앱에 내장) ===');
+// 서버 접속 정보가 앱에 내장돼 별도 설정 없이 항상 연결 상태다. ('⚙ 서버 연결 설정' UI 는 제거됨)
 t('서버 정보 내장으로 기본 연결됨', A.sbReady()===true);
-el('sb-url').value='https://abcdefgh.supabase.co';
-el('sb-anon').value='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abcdefghijklmnopqrstuvwxyz0123456789';
-A.saveShareSetup();
-t('저장됨', A.sbReady()===true);
-t('주소 정규화', A.sbCfg().url==='https://abcdefgh.supabase.co');
-// 잘못된 값 거부
-el('sb-url').value='http://내서버.com';
-A.saveShareSetup();
-t('잘못된 주소 거부', A.sbCfg().url==='https://abcdefgh.supabase.co', A.sbCfg().url);
-t('안내 표시', H.alerts.some(a=>a.includes('주소 형식')));
-el('sb-url').value='https://abcdefgh.supabase.co';
-el('sb-anon').value='짧음';
-A.saveShareSetup();
-t('엉뚱한 키 거부', A.sbCfg().anon.length>40);
-// 새 형식 키
-el('sb-anon').value='sb_publishable_d0h34gAFmb3g5674LVgN4A_PUQgz';
-A.saveShareSetup();
-t('새 형식(sb_publishable_) 허용', A.sbCfg().anon.startsWith('sb_publishable_'));
-// 비밀 키는 막는다
-el('sb-anon').value='sb_secret_rbF69abcdefghijklmnop';
-A.saveShareSetup();
-t('Secret key 차단', !A.sbCfg().anon.startsWith('sb_secret_'), A.sbCfg().anon.slice(0,14));
-t('경고 표시', H.alerts.some(a=>a.includes('비밀 키')));
-el('sb-anon').value='sb_publishable_d0h34gAFmb3g5674LVgN4A_PUQgz';
-A.saveShareSetup();
+t('내장 주소가 실제 supabase 주소', /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(A.sbCfg().url));
+t('내장 키는 publishable', /^sb_publishable_/.test(A.sbCfg().anon));
+t('서버 설정 UI 제거됨', !html.includes('id="sb-modal"') && !html.includes('openShareSetup'));
 
 console.log('=== 3. 공유 링크 id ===');
 const ids=new Set(); for(let i=0;i<400;i++) ids.add(A.shareId());
@@ -87,8 +65,9 @@ console.log('=== 5. 공유 링크 만들기 ===');
 let sent=null;
 // 실제 PostgREST 는 Prefer: return=minimal 삽입에 201 + 빈 본문을 준다.
 // 브라우저는 빈 본문에 .json() 을 부르면 예외를 던진다 → 그대로 재현해 회귀를 막는다.
-// 서버 정보가 앱에 내장돼 boot() 가 장비 로드 GET 을 쏘므로, 쓰기(POST/PATCH)만 기록한다.
-H.ctx.fetch=async(u,o)=>{ if(o&&(o.method==='POST'||o.method==='PATCH')) sent={u,o};
+// boot() 의 장비 로드 GET 과 로그인 시 작업공간 동기화 POST(gear_workspaces)는 무시하고,
+// 공유(gear_scenes) 쓰기(POST/PATCH)만 기록한다.
+H.ctx.fetch=async(u,o)=>{ if(o&&(o.method==='POST'||o.method==='PATCH')&&u.includes('/rest/v1/gear_scenes')) sent={u,o};
   return {ok:true,status:201,
   json:async()=>{throw new Error('Unexpected end of JSON input')},text:async()=>''} ; };
 H.ctx.location={origin:'https://ehstudio.github.io',pathname:'/gear/',search:''};
@@ -189,7 +168,6 @@ A.setVO(false);
 
 console.log('=== 9. 사진 인식 ===');
 t('버튼 존재', html.includes('pickGearPhoto()')&&html.includes('사진에서 불러오기'));
-t('서버 없으면 안내', html.includes("alert('먼저 서버를 연결해 주세요."));
 t('업로드 전 축소', html.includes('downscaleImage(rd.result, (data) => sendGearPhoto(data))'));
 t('보유 장비를 함께 전송', html.includes('const eqList = EQUIPMENT.map'));
 // 결과 렌더

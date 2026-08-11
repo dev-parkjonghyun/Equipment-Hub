@@ -781,22 +781,6 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
       </div>
     </div>
 
-    <div id="sb-modal" class="modal">
-      <div class="mbox">
-        <div class="mhead">서버 연결 설정</div>
-        <p class="msub">공유 링크를 쓰려면 Supabase 주소와 키가 필요합니다.<br>
-          <b>주소</b>는 Settings → Data API 에서, <b>키</b>는 Settings → API Keys 에서 복사하세요.<br>
-          <b>Publishable key 는 공개돼도 되는 값</b>입니다.
-          Secret key(sb_secret_…)는 절대 넣지 마세요.</p>
-        <label class="mlab">Project URL</label>
-        <input id="sb-url" placeholder="https://abcdefgh.supabase.co">
-        <label class="mlab">Publishable key (예전 이름: anon public)</label>
-        <input id="sb-anon" placeholder="sb_publishable_… 또는 eyJ…">
-        <div class="mbtns">
-          <button onclick="closeShareSetup()">취소</button>
-          <button class="primary" onclick="saveShareSetup()">저장</button></div>
-      </div>
-    </div>
 
     <div id="mode-dock">
       <button id="mode-layout" class="md" onclick="switchMode('layout')">배치도</button>
@@ -1138,6 +1122,8 @@ function saveState() {
         console.warn('저장 실패', err);
         alert('브라우저 저장 공간이 부족합니다.\n배경 도면을 제거하거나 불필요한 씬을 삭제한 뒤 다시 시도해주세요.');
     }
+    // 로그인했으면 서버(스튜디오 공용 작업공간)에도 저장 — 다른 기기에서 이어서 작업
+    if (typeof isLoggedIn === 'function' && isLoggedIn()) scheduleWorkspaceSync();
 }
 // 현재 모드에서 이미 배치된 장비 id 집합
 function placedEqSet() {
@@ -2785,7 +2771,6 @@ function sceneForShare() {
 }
 const SHARE_DAYS = [7, 30, 90];
 async function createShareLink() {
-    if (!sbReady()) { openShareSetup(); return; }
     const sc = currentScene();
     const days = SHARE_DAYS[Math.max(0, SHARE_DAYS.indexOf(+(state.shareDays || 30)))] || 30;
     const id = shareId();
@@ -2888,45 +2873,6 @@ async function loadSharedScene(id) {
         throw e;
     }
 }
-// 서버 설정 화면
-function openShareSetup() {
-    const c = sbCfg();
-    document.getElementById('sb-url').value = c.url;
-    document.getElementById('sb-anon').value = c.anon;
-    document.getElementById('sb-modal').classList.add('on');
-}
-function closeShareSetup() { document.getElementById('sb-modal').classList.remove('on'); }
-function saveShareSetup() {
-    const url = document.getElementById('sb-url').value.trim().replace(/\/+$/, '');
-    const anon = document.getElementById('sb-anon').value.trim();
-    if (url && !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) {
-        alert('주소 형식이 올바르지 않습니다.\n예) https://abcdefgh.supabase.co'); return;
-    }
-    if (anon) {
-        if (/^sb_secret_/.test(anon) || /service_role/.test(anon)) {
-            alert('비밀 키(Secret key)를 넣으셨습니다.\n\n'
-                + '이 키는 접근 제한을 무시하므로 웹에 올리면 안 됩니다.\n'
-                + 'Publishable key (sb_publishable_...) 를 사용해 주세요.');
-            return;
-        }
-        const okNew = /^sb_publishable_/.test(anon);
-        const okOld = /^eyJ/.test(anon) && anon.length > 60;
-        if (!okNew && !okOld) {
-            alert('키 형식이 올바르지 않습니다.\n\n'
-                + '· 새 형식: sb_publishable_ 로 시작\n'
-                + '· 옛 형식: eyJ 로 시작하는 긴 문자열');
-            return;
-        }
-    }
-    state.sb = { url, anon };
-    saveState(); closeShareSetup(); renderScenePane();
-    syncAuthUI();
-    if (url) loadEquipmentFromServer().then(() => { renderList(); renderPalette(); });
-    setStatus(url ? '서버 설정을 저장했습니다' : '서버 설정을 비웠습니다');
-}
-
-
-
 
 // ═══════════════════════════════════════════════════
 //  장비 목록을 서버에서 읽고 쓰기
@@ -3107,9 +3053,54 @@ function sbLogout() {
     setStatus('로그아웃했습니다 — 이제 보기만 가능합니다');
 }
 
+// ═══════════════════════════════════════════════════
+//  작업공간(씬·세트) 서버 동기화
+//  씬/세트는 원래 이 브라우저(localStorage)에만 있었다. 로그인하면 스튜디오 공용
+//  작업공간(gear_workspaces, id='studio')에 저장해 다른 기기에서도 이어서 작업한다.
+//  로그아웃·익명이면 저장하지 않고 이 브라우저에만 둔다(기존 동작). 보기 전용도 저장 안 함.
+// ═══════════════════════════════════════════════════
+function workspaceForServer() {
+    return { scenes: state.scenes, sets: state.sets, currentScene: state.currentScene };
+}
+let _wsTimer = null;
+function scheduleWorkspaceSync() {          // 저장 폭주를 막으려 1.5초 디바운스
+    clearTimeout(_wsTimer);
+    _wsTimer = setTimeout(() => { pushWorkspace(); }, 1500);
+}
+async function pushWorkspace() {
+    if (!isLoggedIn() || viewOnly) return;
+    try {
+        if (!(await ensureAuth())) return;
+        await sbFetch('/rest/v1/gear_workspaces', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },   // 단일 행 upsert
+            body: JSON.stringify({
+                id: 'studio',
+                data: workspaceForServer(),
+                updated_at: new Date().toISOString(),
+            }),
+        });
+    } catch (e) { console.warn('작업공간 저장 실패 — 로컬엔 저장됨', e); }   // 오프라인이어도 앱은 정상
+}
+async function pullWorkspace() {
+    if (!isLoggedIn()) return;
+    try {
+        const rows = await sbFetch('/rest/v1/gear_workspaces?id=eq.studio&select=data,updated_at');
+        const d = rows && rows.length ? rows[0].data : null;
+        if (d && d.scenes && Object.keys(d.scenes).length) {
+            state.scenes = d.scenes;
+            if (d.sets) state.sets = d.sets;
+            state.currentScene = (d.currentScene && d.scenes[d.currentScene])
+                ? d.currentScene : Object.keys(d.scenes)[0];
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}  // 로컬 캐시 갱신(다시 밀어올리지 않음)
+        } else if (state.scenes && Object.keys(state.scenes).length) {
+            await pushWorkspace();              // 서버에 아직 없으면 이 브라우저 씬을 처음으로 올린다
+        }
+    } catch (e) { console.warn('작업공간 불러오기 실패 — 로컬 사용', e); }
+}
+
 // ── 로그인 화면 ──
 function openLogin() {
-    if (!sbReady()) { openShareSetup(); return; }
     document.getElementById('lg-err').textContent = '';
     document.getElementById('lg-email').value = authEmail();
     document.getElementById('lg-pw').value = '';
@@ -3128,8 +3119,10 @@ async function doLogin() {
         await sbLogin(email, pw);
         closeLogin();
         syncAuthUI();
+        await pullWorkspace();            // 로그인 시 서버 작업공간 가져오기(없으면 내 씬을 올림)
         await loadEquipmentFromServer();
-        renderList(); renderPalette(); renderScenePane();
+        switchMode(currentScene().mode || 'list');
+        renderSceneSelect(); renderList(); renderPalette(); renderScenePane();
         setStatus(`${authEmail()} 로 로그인했습니다 — 이제 장비를 수정할 수 있어요`);
     } catch (e) {
         err.textContent = e.message;
@@ -3146,14 +3139,13 @@ function syncAuthUI() {
         b.onclick = () => { if (confirm('로그아웃할까요?\n로그아웃하면 장비를 수정할 수 없습니다.')) sbLogout(); };
     } else {
         b.innerHTML = `<span class="ac-dot"></span>로그인`;
-        b.title = sbReady() ? '스튜디오 계정으로 로그인' : '먼저 서버를 연결해 주세요';
+        b.title = '스튜디오 계정으로 로그인';
         b.onclick = openLogin;
     }
-    b.style.display = sbReady() ? 'inline-flex' : 'none';
+    b.style.display = 'inline-flex';
 }
 // 수정하려 할 때 로그인 확인
 function requireLogin(what) {
-    if (!sbReady()) return true;              // 서버 연결 전이면 이 브라우저에만 저장 (기존 동작)
     if (isLoggedIn()) return true;
     setStatus(`${what || '수정'}하려면 로그인이 필요합니다`);
     openLogin();
@@ -3165,7 +3157,6 @@ function requireLogin(what) {
 // ═══════════════════════════════════════════════════
 let photoResult = null;
 function pickGearPhoto() {
-    if (!sbReady()) { alert('먼저 서버를 연결해 주세요.\n좌측 씬 패널 → 서버 연결하기'); openShareSetup(); return; }
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'image/*';
     inp.onchange = () => {
@@ -3518,7 +3509,7 @@ function updateListSummary() {
     el.innerHTML = cards.map(c =>
         `<div class="lsum ${c.cls || ''}" onclick="${c.act}">
            <span class="k">${c.k}</span><span class="v">${c.v}</span></div>`).join('')
-        + `<div class="lsum src ${src.c}" onclick="${eqIsServer() && !isLoggedIn() ? 'openLogin()' : 'openShareSetup()'}">
+        + `<div class="lsum src ${src.c}" onclick="${!isLoggedIn() ? 'openLogin()' : ''}">
              <span class="k">데이터</span><span class="vs">${src.t}</span></div>`;
 }
 function syncListTools() {
@@ -5106,9 +5097,9 @@ function renderScenePane() {
               </div>`).join('') : ''}
           <div class="pane-sec">백업 · 공유</div>
           <div class="slot-help" style="margin-bottom:8px">
-            작업 내용은 이 브라우저에만 저장됩니다.<br>
-            <b>다른 컴퓨터로 옮기거나</b> 팀원에게 보낼 때, 또는
-            <b>실수로 지워질 경우에 대비</b>해 파일로 받아두세요.
+            ${isLoggedIn()
+              ? '작업 내용이 이 브라우저와 <b>서버에 함께 저장</b>돼, 다른 기기에서도 이어서 작업할 수 있습니다.<br>파일로도 받아두면 더 안전합니다.'
+              : '작업 내용은 <b>이 브라우저에만</b> 저장됩니다. <b>로그인하면 서버에 저장</b>돼 다른 기기에서도 이어집니다.<br>또는 실수로 지워질 경우에 대비해 파일로 받아두세요.'}
           </div>
           <div class="pane-btns">
             <button onclick="exportJSON()">📥 파일로 저장</button>
@@ -7605,8 +7596,10 @@ applyEqEdits();
     if (sbReady()) {
         await ensureAuth();
         syncAuthUI();
+        if (isLoggedIn()) await pullWorkspace();       // 로그인 상태면 서버 작업공간을 먼저 가져온다
         await loadEquipmentFromServer();
-        renderList(); renderPalette();
+        switchMode(currentScene().mode || 'list');     // 가져온 씬으로 화면 다시 그림
+        renderSceneSelect(); renderScenePane(); renderList(); renderPalette();
     }
 })();
 </script>
