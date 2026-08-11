@@ -170,6 +170,8 @@ t('배너에 이름', el('vo-name').textContent==='인터뷰 A룸');
 t('배너 표시', el('vo-bar').style.display==='flex');
 t('조회수 기록 호출', html.includes('/rest/v1/rpc/gear_bump_view'));
 t('내 로컬 데이터 보존(보기 전용은 저장 안 함)', H.ctx.localStorage.getItem('eh_layout_v1')==='MY_REAL_DATA');
+// boot() 초기화 IIFE 는 최상위에 딱 한 번만 있어야 한다(예전엔 gotoScene·핸들러에도 잘못 박혀 3벌이었음)
+t('boot 초기화는 한 번만', (html.match(/async function boot/g)||[]).length===1);
 A.setVO(false);
 
 console.log('=== 9. 사진 인식 ===');

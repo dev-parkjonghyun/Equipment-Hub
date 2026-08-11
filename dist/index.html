@@ -5106,17 +5106,7 @@ function gotoScene(id) {
     selectedIds.clear(); floorSel = null; three3Sel = null;
     saveState();
     applyEqEdits();
-(async function boot() {
-    const sid = new URLSearchParams(location.search).get('s');
-    if (sid) { loadSharedScene(sid).catch(() => {}); return; }
-    switchMode(currentScene().mode || 'list');
-    if (sbReady()) {
-        await ensureAuth();
-        syncAuthUI();
-        await loadEquipmentFromServer();
-        renderList(); renderPalette();
-    }
-})();
+    switchMode(currentScene().mode || 'list');   // 선택한 씬의 모드로 전환하며 다시 그림
     renderScenePane();
 }
 
@@ -7461,17 +7451,7 @@ document.getElementById('scene-select').addEventListener('change', e => {
     selectedIds.clear(); floorSel = null;
     saveState();
     applyEqEdits();
-(async function boot() {
-    const sid = new URLSearchParams(location.search).get('s');
-    if (sid) { loadSharedScene(sid).catch(() => {}); return; }
-    switchMode(currentScene().mode || 'list');
-    if (sbReady()) {
-        await ensureAuth();
-        syncAuthUI();
-        await loadEquipmentFromServer();
-        renderList(); renderPalette();
-    }
-})();
+    switchMode(currentScene().mode || 'list');   // 선택한 씬으로 전환
 });
 function newScene() {
     const name = prompt('새 씬 이름 (예: 시술전후 촬영, 인터뷰 세팅)', '새 씬');
