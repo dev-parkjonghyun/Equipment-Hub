@@ -11,8 +11,9 @@ fi
 total=0; failed=0
 for f in tests/test_*.js; do
   out=$(node "$f" 2>&1 | tail -1)
-  n=$(echo "$out"  | grep -oP '\d+(?= 통과)' || echo 0)
-  bad=$(echo "$out" | grep -oP '\d+(?= 실패)' || echo 1)
+  # macOS(BSD)·Linux(GNU) 모두에서 도는 sed 로 개수를 뽑는다 (grep -oP 는 맥에서 안 됨)
+  n=$(echo "$out"   | sed -n 's/.*결과: \([0-9]*\) 통과.*/\1/p'); n=${n:-0}
+  bad=$(echo "$out" | sed -n 's/.*통과 \/ \([0-9]*\) 실패.*/\1/p'); bad=${bad:-1}
   total=$((total + n))
   if [ "$bad" != "0" ]; then
     failed=$((failed + 1))

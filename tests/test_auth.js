@@ -34,9 +34,9 @@ function mockServer(){
     if(u.includes('grant_type=refresh_token'))
       return {ok:true,status:200,json:async()=>({access_token:'ACCESS2',refresh_token:'REFRESH2',expires_in:3600})};
     if(u.includes('/rest/v1/gear_equipment?select='))
-      return {ok:true,status:200,json:async()=>ROWS};
+      return {ok:true,status:200,json:async()=>ROWS,text:async()=>JSON.stringify(ROWS)};
     if(u.includes('/rest/v1/gear_specs?select='))
-      return {ok:true,status:200,json:async()=>SPECROWS};
+      return {ok:true,status:200,json:async()=>SPECROWS,text:async()=>JSON.stringify(SPECROWS)};
     return {ok:true,status:204,json:async()=>null,text:async()=>''};
   };
 }

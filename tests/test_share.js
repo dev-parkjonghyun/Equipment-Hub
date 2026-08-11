@@ -84,7 +84,10 @@ t('만든 시각 기록', !!pay.madeAt);
 
 console.log('=== 5. 공유 링크 만들기 ===');
 let sent=null;
-H.ctx.fetch=async(u,o)=>{ sent={u,o}; return {ok:true,status:201,json:async()=>({}),text:async()=>''} ; };
+// 실제 PostgREST 는 Prefer: return=minimal 삽입에 201 + 빈 본문을 준다.
+// 브라우저는 빈 본문에 .json() 을 부르면 예외를 던진다 → 그대로 재현해 회귀를 막는다.
+H.ctx.fetch=async(u,o)=>{ sent={u,o}; return {ok:true,status:201,
+  json:async()=>{throw new Error('Unexpected end of JSON input')},text:async()=>''} ; };
 H.ctx.location={origin:'https://ehstudio.github.io',pathname:'/gear/',search:''};
 H.ctx.Blob=function(a){ this.size=JSON.stringify(a).length; };
 H.ctx.navigator={clipboard:{writeText(){}},userAgent:'test'};
@@ -138,11 +141,13 @@ A.setVO(false);
 
 console.log('=== 8. 공유 링크 열기 ===');
 H.ctx.fetch=async(u)=>{
-  if(u.includes('/rest/v1/gear_scenes?id=eq.'))
-    return {ok:true,status:200,json:async()=>[{name:'인터뷰 A룸',expires_at:null,
+  if(u.includes('/rest/v1/gear_scenes?id=eq.')){
+    const body=[{name:'인터뷰 A룸',expires_at:null,
       data:{name:'인터뷰 A룸',blocks:{b1:{eqId:'CAM-003',x:10,y:10}},groups:{},
-            floor:{zoom:50,items:{},rooms:[],subjects:[]},sets:{},eqEdits:{}}}]};
-  return {ok:true,status:200,json:async()=>({})};
+            floor:{zoom:50,items:{},rooms:[],subjects:[]},sets:{},eqEdits:{}}}];
+    return {ok:true,status:200,json:async()=>body,text:async()=>JSON.stringify(body)};
+  }
+  return {ok:true,status:200,json:async()=>({}),text:async()=>''};   // rpc bump_view → 빈 본문
 };
 await A.loadSharedScene('abcdefghijkm');
 t('읽기 전용으로 진입', A.isViewOnly()===true);

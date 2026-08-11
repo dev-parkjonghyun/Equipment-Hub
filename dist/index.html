@@ -2718,7 +2718,10 @@ async function sbFetch(path, opts) {
         let d = ''; try { d = (await r.text()).slice(0, 300); } catch (e) {}
         throw new Error(`서버 오류 ${r.status} ${d}`);
     }
-    return r.status === 204 ? null : r.json();
+    // 본문이 비어 있을 수 있다 (204, 또는 Prefer: return=minimal 의 201).
+    // 빈 본문에 r.json() 을 부르면 "Unexpected end of JSON input" 로 터진다.
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
 }
 // 추측하기 어려운 짧은 id
 function shareId() {
@@ -2732,15 +2735,28 @@ function shareId() {
     return out;
 }
 // 공유용으로 담을 것만 추린다 (편집 상태·설정은 뺀다)
+// 외부(감독님)에게 보내므로, "현재 씬에 실제로 놓인 장비"만 담는다.
+// 씬과 무관한 재고의 보관위치·상태·메모(eqEdits)나 다른 세트는 내보내지 않는다.
 function sceneForShare() {
     const sc = currentScene();
+    const used = new Set([
+        ...Object.values(sc.blocks || {}).map(b => b.eqId),
+        ...Object.values((sc.floor && sc.floor.items) || {}).map(i => i.eqId),
+    ].filter(Boolean));
+    const allEdits = state.eqEdits || {};
+    const eqEdits = {};
+    for (const id of used) if (allEdits[id]) eqEdits[id] = allEdits[id];
+    const allSets = state.sets || {};
+    const sets = {};
+    for (const [sid, s] of Object.entries(allSets))
+        if ((s.eqIds || []).some(id => used.has(id))) sets[sid] = s;
     return {
         v: 1,
         name: sc.name,
         blocks: sc.blocks, groups: sc.groups,
         floor: sc.floor,
-        sets: state.sets,
-        eqEdits: state.eqEdits || {},
+        sets,
+        eqEdits,
         madeAt: new Date().toISOString(),
     };
 }
