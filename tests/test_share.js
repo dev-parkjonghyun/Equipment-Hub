@@ -145,7 +145,8 @@ t('Delete 차단', html.includes("if (e.key === 'Delete' || e.key === 'Backspace
 A.openPane('scenes');
 t('씬 패널에 공유 도구 숨김', el('scene-body').innerHTML.includes('보기 전용으로 열린 배치'));
 t('배너 마크업', html.includes('id="vo-bar"')&&html.includes('보기 전용으로 공유된 배치'));
-t('편집 UI 숨김 CSS', html.includes('#app.view-only #list-tools'));
+t('보기 전용: 좌측 레일·패널·상단 툴바 숨김', /#app\.view-only #rail,\s*#app\.view-only #panel,\s*#app\.view-only #panel-tab,\s*#app\.view-only #toolbar\{display:none\}/.test(html));
+t('보기 전용: 캔버스가 전체 폭', /#app\.view-only\{[^}]*grid-template-columns:0 0 1fr/.test(html));
 t('3D·평면도 전환은 허용', html.includes('#app.view-only #mode-dock button{opacity:1;pointer-events:auto}'));
 A.setVO(false);
 

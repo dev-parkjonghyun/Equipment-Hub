@@ -507,13 +507,15 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 #vo-bar .vo-ic{font-size:14px}
 #vo-bar .vo-tx b{color:var(--tx-0)}
 #vo-bar .vo-sub{margin-left:auto;font-size:10.5px;color:var(--tx-3);letter-spacing:.02em}
-#app.view-only{padding-top:38px;height:100vh}
-#app.view-only #rail .rail-btn.tool[data-p=scenes],
-#app.view-only #list-tools,
-#app.view-only #layout-tools .seg,
-#app.view-only #panel-tab{display:none}
+/* 공유 링크(보기 전용): 좌측 레일·패널·상단 툴바를 감추고 캔버스만 보여준다.
+   그리드 좌측 두 열을 0 으로 접어 캔버스가 전체 폭을 쓴다.
+   하단 모드 도크(배치도/평면도/3D)는 남겨 감독님이 시점을 바꿀 수 있게 한다. */
+#app.view-only{padding-top:38px;height:100vh;grid-template-columns:0 0 1fr}
+#app.view-only #rail,
+#app.view-only #panel,
+#app.view-only #panel-tab,
+#app.view-only #toolbar{display:none}
 #app.view-only .eq-card{cursor:default;opacity:.85}
-#app.view-only #toolbar button:not(.md):not(#panel-tab){opacity:.45;pointer-events:none}
 #app.view-only #mode-dock button{opacity:1;pointer-events:auto}
 
 .modal{position:fixed;inset:0;z-index:400;background:rgba(6,9,13,.72);
