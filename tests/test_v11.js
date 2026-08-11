@@ -141,6 +141,12 @@ t('1인칭 안내로 전환', H.store['nav-hint'].innerHTML.includes('전진·�
 t('버튼 상태 표시', H.store['walk-btn'].textContent.includes('켜짐'));
 A.toggleWalk(false);
 t('버튼 원복', !H.store['walk-btn'].textContent.includes('켜짐'));
+// nav-hint 는 three-hud 밖에 있어야 한다(안에 있으면 three-sel 과 겹침)
+{ const hud=html.slice(html.indexOf('id="three-hud"'), html.indexOf('id="item-panel"'));
+  t('nav-hint 는 three-hud 밖(겹침 방지)', !hud.includes('id="nav-hint"')
+    && html.indexOf('id="nav-hint"') < html.indexOf('id="three-hud"')); }
+// 시점 중심은 씬을 처음 그릴 때만 맞춘다(카메라 이동 시 build3D 가 시점을 리셋해 튀지 않도록)
+t('시점 리셋 가드(카메라 이동 시 시점 안 튐)', html.includes('R3._framed !== state.currentScene'));
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);

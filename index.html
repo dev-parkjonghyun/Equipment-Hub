@@ -1017,8 +1017,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                 </div>
             </div>
             <div id="three-empty" class="empty-ov"></div>
+            <div id="nav-hint"></div>
             <div id="three-hud">
-                <div id="nav-hint"></div>
                 <div id="three-sel">항목을 클릭해 선택 · 드래그=회전 · 휠=줌 · 우클릭드래그=이동</div>
                 <div id="three-warn"></div>
             </div>
@@ -6724,7 +6724,13 @@ function build3D() {
         }
         pts.forEach(p => { cx += p.x; cz += p.y; n++; });
     });
-    if (n) { R3.orbit.tx = cx / n; R3.orbit.tz = cz / n; R3.orbit.ty = f.ceilH * 0.45; }
+    // 시점 중심(오빗 타깃)은 이 씬을 '처음' 그릴 때만 방 중심으로 맞춘다.
+    // 매 렌더마다 리셋하면 카메라를 옮길 때 사용자가 돌려둔 시점이 튄다.
+    // 언제든 Home(fitView3D) 으로 다시 맞출 수 있다.
+    if (n && R3._framed !== state.currentScene) {
+        R3.orbit.tx = cx / n; R3.orbit.tz = cz / n; R3.orbit.ty = f.ceilH * 0.45;
+        R3._framed = state.currentScene;
+    }
 
     // 장비
     const over = [];
