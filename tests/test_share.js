@@ -148,6 +148,19 @@ t('배너 마크업', html.includes('id="vo-bar"')&&html.includes('보기 전용
 t('보기 전용: 좌측 레일·패널·상단 툴바 숨김', /#app\.view-only #rail,\s*#app\.view-only #panel,\s*#app\.view-only #panel-tab,\s*#app\.view-only #toolbar\{display:none\}/.test(html));
 t('보기 전용: 캔버스가 전체 폭', /#app\.view-only\{[^}]*grid-template-columns:0 0 1fr/.test(html));
 t('3D·평면도 전환은 허용', html.includes('#app.view-only #mode-dock button{opacity:1;pointer-events:auto}'));
+// 배치도 블록: 이동·라벨편집·결합 차단
+t('배치도 블록 이동 차단', html.includes('function startDrag(e, type, id) {\n    if (isViewOnly()) return;'));
+t('블록 라벨 편집 차단', html.includes('function editBlockLabel(bid) {\n    if (isViewOnly()) return;'));
+t('블록 결합 차단', html.includes('function dropOnBlock(bid, e) {\n    if (isViewOnly()) return;'));
+// 3D cam-panel: 값 조정 함수 차단
+t('카메라 값 조정 차단', html.includes('function setCam(prop, v) {\n    if (isViewOnly()) return;'));
+t('조리개 조정 차단', html.includes('function setFstopIdx(i) {\n    if (isViewOnly()) return;'));
+t('화면비 조정 차단', html.includes('function setAspect(v) {\n    if (isViewOnly()) return;'));
+// cam-panel: 초점·조리개·프리뷰만 남기고 나머지 숨김 + 슬라이더 조작 차단
+t('cam-panel 비필수 행 숨김', html.includes('#app.view-only #cpr-h,')&&html.includes('#app.view-only #cpr-ar,'));
+t('cam-panel 편집 버튼 숨김', html.includes('#app.view-only #cam-panel .vo-edit{display:none}'));
+t('cam-panel 슬라이더 조작 차단', html.includes('#app.view-only #cam-panel input,\n#app.view-only #cam-panel select{pointer-events:none}'));
+t('초점·조리개 행은 유지', html.includes('id="cpr-foc"')&&html.includes('id="cpr-fs"'));
 A.setVO(false);
 
 console.log('=== 8. 공유 링크 열기 ===');

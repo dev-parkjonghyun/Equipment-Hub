@@ -517,6 +517,17 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 #app.view-only #toolbar{display:none}
 #app.view-only .eq-card{cursor:default;opacity:.85}
 #app.view-only #mode-dock button{opacity:1;pointer-events:auto}
+/* 공유 3D: 카메라 패널은 읽기 전용. 초점·조리개·프리뷰만 남기고
+   높이·팬·틸트·포커스거리·화면비 행과 편집 버튼(.vo-edit)은 숨긴다.
+   남는 슬라이더는 pointer-events 로 조작을 막아 값만 보이게 한다. */
+#app.view-only #cpr-h,
+#app.view-only #cpr-pan,
+#app.view-only #cpr-tilt,
+#app.view-only #cpr-fd,
+#app.view-only #cpr-ar,
+#app.view-only #cam-panel .vo-edit{display:none}
+#app.view-only #cam-panel input,
+#app.view-only #cam-panel select{pointer-events:none}
 
 .modal{position:fixed;inset:0;z-index:400;background:rgba(6,9,13,.72);
   display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -962,25 +973,25 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                 <div class="cp-head">📷 <span id="cp-name">카메라 없음</span></div>
                 <div id="cp-lens" class="cp-lens"></div>
                 <div id="cp-body">
-                    <div class="cp-row"><label>높이</label>
+                    <div class="cp-row" id="cpr-h"><label>높이</label>
                         <input type="range" id="cp-h" min="0.2" max="2.5" step="0.01" oninput="setCam('h3',this.value)">
                         <span id="cp-h-v">1.45m</span></div>
-                    <div class="cp-row"><label>팬</label>
+                    <div class="cp-row" id="cpr-pan"><label>팬</label>
                         <input type="range" id="cp-pan" min="-180" max="180" step="1" oninput="setCam('pan',this.value)">
                         <span id="cp-pan-v">0°</span></div>
-                    <div class="cp-row"><label>틸트</label>
+                    <div class="cp-row" id="cpr-tilt"><label>틸트</label>
                         <input type="range" id="cp-tilt" min="-60" max="60" step="0.5" oninput="setCam('tilt',this.value)">
                         <span id="cp-tilt-v">0°</span></div>
-                    <div class="cp-row"><label>초점</label>
+                    <div class="cp-row" id="cpr-foc"><label>초점</label>
                         <input type="range" id="cp-foc" min="8" max="200" step="1" oninput="setCam('focal',this.value)">
                         <span id="cp-foc-v">35mm</span></div>
-                    <div class="cp-row"><label>조리개</label>
+                    <div class="cp-row" id="cpr-fs"><label>조리개</label>
                         <input type="range" id="cp-fs" min="0" max="10" step="1" oninput="setFstopIdx(this.value)">
                         <span id="cp-fs-v">F2.8</span></div>
-                    <div class="cp-row"><label>포커스</label>
+                    <div class="cp-row" id="cpr-fd"><label>포커스</label>
                         <input type="range" id="cp-fd" min="0.3" max="15" step="0.05" oninput="setCam('focus',this.value)">
                         <span id="cp-fd-v">3.00m</span></div>
-                    <div class="cp-row"><label>화면비</label>
+                    <div class="cp-row" id="cpr-ar"><label>화면비</label>
                         <select id="cp-ar" onchange="setAspect(this.value)">
                             <option value="1.7778">16:9</option>
                             <option value="2.39">2.39:1 시네마</option>
@@ -989,18 +1000,18 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                             <option value="0.8">4:5</option>
                             <option value="0.5625">9:16 세로</option>
                         </select></div>
-                    <div class="cp-btns">
+                    <div class="cp-btns vo-edit">
                         <button onclick="lookAtSubject()">🎯 피사체 조준</button>
                         <button onclick="focusOnSubject()">◎ 피사체 포커스</button>
                     </div>
-                    <div class="cp-btns">
+                    <div class="cp-btns vo-edit">
                         <button onclick="addSubject()">👤 피사체 추가</button>
                         <button id="dof-btn" onclick="toggleDOF()">◍ 심도 표시</button>
                     </div>
                     <div class="cp-btns">
                         <button id="pv-btn" onclick="togglePreview()">🖥 프리뷰 ON</button>
-                        <button onclick="cyclePreviewSize()">⤢ 크기</button>
-                        <button onclick="toggleGuides()">⊞ 가이드</button>
+                        <button class="vo-edit" onclick="cyclePreviewSize()">⤢ 크기</button>
+                        <button class="vo-edit" onclick="toggleGuides()">⊞ 가이드</button>
                     </div>
                     <div class="cp-info" id="cp-info"></div>
                 </div>
@@ -2016,6 +2027,7 @@ function shrinkGroupToFit(gid) {
 
 // ===================== 블록/그룹 이동 (pointer 기반) =====================
 function startDrag(e, type, id) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 블록·그룹 이동 금지
     e.stopPropagation();
     e.preventDefault();
     const scene = currentScene();
@@ -2161,6 +2173,7 @@ function removeBlock(bid, e) {
     saveState(); renderPalette(); renderCanvas();
 }
 function editBlockLabel(bid) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 블록 라벨 편집 금지
     const b = currentScene().blocks[bid];
     const eq = EQUIPMENT.find(e => e.id === b.eqId);
     const cur = b.label || dispName(eq);
@@ -4159,6 +4172,7 @@ function hlDrop(el, bid) {
     el.classList.add(r ? (r.ok ? 'drop-ok' : 'drop-warn') : 'drop-warn');
 }
 function dropOnBlock(bid, e) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 블록 결합 금지
     const scene = currentScene();
     if (!dragPayload) return;
     document.querySelectorAll('.block').forEach(x => x.classList.remove('drop-ok', 'drop-warn'));
@@ -7046,6 +7060,7 @@ function setItemPos(key, v, live) {
 
 // ───────── 피사체 ─────────
 function addSubject() {
+    if (isViewOnly()) return;               // 공유(보기 전용): 피사체 추가 금지
     const f = ensure3D(currentScene());
     if (!f.subjects) f.subjects = [];
     let cx = 4, cz = 3;
@@ -7183,6 +7198,7 @@ function subjectEyeY(s) { return s.h * (s.pose === 'sit' ? 0.760 : 0.975); }
 
 // ───────── 카메라 세부 조절 ─────────
 function setCam(prop, v) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 카메라 값 조정 금지
     const f = ensure3D(currentScene());
     const [fid, it] = activeCam();
     if (!it) return;
@@ -7202,6 +7218,7 @@ function setCam(prop, v) {
     saveState(); build3D(); updateCamPanel();
 }
 function setFstopIdx(i) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 조리개 조정 금지
     const [fid, it] = activeCam();
     if (!it) return;
     let idx = Math.max(0, Math.min(FSTOPS.length - 1, Math.round(+i)));
@@ -7210,6 +7227,7 @@ function setFstopIdx(i) {
     saveState(); build3D(); updateCamPanel();
 }
 function focusOnSubject() {
+    if (isViewOnly()) return;               // 공유(보기 전용): 포커스 변경 금지
     const f = ensure3D(currentScene());
     const [fid, it] = activeCam();
     if (!it) { alert('카메라를 먼저 배치해주세요.'); return; }
@@ -7225,6 +7243,7 @@ function toggleDOF() {
     build3D();
 }
 function setAspect(v) {
+    if (isViewOnly()) return;               // 공유(보기 전용): 화면비 조정 금지
     previewAR = parseFloat(v) || 1.7778;
     syncPreviewFrame(); updateCamPanel();
 }
@@ -7242,6 +7261,7 @@ function cyclePreviewSize() {
 function toggleGuides() { guidesOn = !guidesOn; syncPreviewFrame(); }
 
 function lookAtSubject() {
+    if (isViewOnly()) return;               // 공유(보기 전용): 카메라 조준 변경 금지
     const f = ensure3D(currentScene());
     const [fid, it] = activeCam();
     if (!it) { alert('카메라를 먼저 배치해주세요.'); return; }
