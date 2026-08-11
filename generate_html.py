@@ -1131,6 +1131,9 @@ function loadState() {
 // DEFAULT_SETS 선언 이후에 state 초기화 (TDZ 방지)
 let state = loadState();
 function saveState() {
+    // 보기 전용(공유 링크)으로 열렸을 땐 절대 저장하지 않는다.
+    // 안 그러면 공유 씬이 내 작업 데이터(scenes)를 덮어써 편집 내용이 사라진다.
+    if (typeof viewOnly !== 'undefined' && viewOnly) return;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (err) {

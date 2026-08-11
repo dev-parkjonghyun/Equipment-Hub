@@ -160,6 +160,8 @@ H.ctx.fetch=async(u)=>{
   }
   return {ok:true,status:200,json:async()=>({}),text:async()=>''};   // rpc bump_view → 빈 본문
 };
+// 공유 링크를 열어도 내 로컬 작업 데이터를 덮어쓰면 안 된다(보기 전용엔 저장 금지).
+H.ctx.localStorage.setItem('eh_layout_v1','MY_REAL_DATA');
 await A.loadSharedScene('abcdefghijkm');
 t('읽기 전용으로 진입', A.isViewOnly()===true);
 t('공유된 씬만 남음', Object.keys(A.st().scenes).join()==='shared');
@@ -167,6 +169,7 @@ t('이름 반영', A.cur().name==='인터뷰 A룸');
 t('배너에 이름', el('vo-name').textContent==='인터뷰 A룸');
 t('배너 표시', el('vo-bar').style.display==='flex');
 t('조회수 기록 호출', html.includes('/rest/v1/rpc/gear_bump_view'));
+t('내 로컬 데이터 보존(보기 전용은 저장 안 함)', H.ctx.localStorage.getItem('eh_layout_v1')==='MY_REAL_DATA');
 A.setVO(false);
 
 console.log('=== 9. 사진 인식 ===');
