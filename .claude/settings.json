@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./build.sh)",
+      "Bash(./run-tests.sh)",
+      "Bash(python3 generate_html.py)",
+      "Bash(node tests/*.js)"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+# 무료 Supabase가 7일 미사용으로 멈추지 않도록 주 1회 깨웁니다.
+# 저장소 Settings → Secrets → Actions 에 SUPABASE_URL, SUPABASE_ANON 을 넣어주세요.
+name: keep-supabase-awake
+on:
+  schedule:
+    - cron: '0 0 * * 1'      # 매주 월요일 09:00 KST
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase 깨우기
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/scenes?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON }}")
+          echo "응답: $code"
+          [ "$code" -lt 500 ] || exit 1
