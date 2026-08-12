@@ -923,8 +923,6 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                 <button onclick="nudgeHeight(-0.1)">▼</button>
                 <div class="divider"></div>
                 <button id="fr-btn" onclick="toggleFrustum()">🎥 화각 표시</button>
-                <label class="tlab">초점 <input id="foc-in" type="number" step="1" min="8" max="400"
-                    value="35" onchange="setFocal(this.value)"> mm</label>
                 <select id="lens-sel" onchange="pickLens(this.value)"></select>
                 <div class="divider"></div>
                 <button id="sh-btn" onclick="toggleShadows()">🌑 그림자 ON</button>
@@ -935,9 +933,6 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                 <div class="divider"></div>
                 <button class="primary" onclick="renderPNG()">🖼 렌더 이미지 저장</button>
             </span>
-            <div class="divider"></div>
-            <button onclick="exportJSON()">📥 JSON 내보내기</button>
-            <button onclick="importJSON()">📤 불러오기</button>
         </div>
         <div id="list-wrap">
             <div id="list-summary"></div>
@@ -5095,15 +5090,12 @@ function renderScenePane() {
                   : `<button class="danger" style="padding:3px 8px;font-size:10px"
                        onclick="revokeShare('${x.id}')">회수</button>`}
               </div>`).join('') : ''}
-          <div class="pane-sec">백업 · 공유</div>
-          <div class="slot-help" style="margin-bottom:8px">
+          <div class="pane-sec">저장</div>
+          <div class="slot-help">
             ${isLoggedIn()
-              ? '작업 내용이 이 브라우저와 <b>서버에 함께 저장</b>돼, 다른 기기에서도 이어서 작업할 수 있습니다.<br>파일로도 받아두면 더 안전합니다.'
-              : '작업 내용은 <b>이 브라우저에만</b> 저장됩니다. <b>로그인하면 서버에 저장</b>돼 다른 기기에서도 이어집니다.<br>또는 실수로 지워질 경우에 대비해 파일로 받아두세요.'}
-          </div>
-          <div class="pane-btns">
-            <button onclick="exportJSON()">📥 파일로 저장</button>
-            <button onclick="importJSON()">📤 파일 불러오기</button></div>`;
+              ? '작업 내용이 <b>서버에 저장</b>돼 다른 기기에서도 이어서 작업할 수 있습니다.'
+              : '작업 내용은 <b>이 브라우저에만</b> 저장됩니다. <b>로그인하면 서버에 저장</b>돼 다른 기기에서도 이어집니다.'}
+          </div>`;
     box.innerHTML = h;
 }
 function gotoScene(id) {
@@ -7283,8 +7275,10 @@ function updateCamPanel() {
     if (!panel) return;
     if (currentScene().mode !== 'three') { panel.style.display = 'none'; return; }
     const f = ensure3D(currentScene());
-    const [fid, it] = activeCam();
-    if (!it) { panel.style.display = 'none'; return; }
+    // 선택된 항목이 '카메라'일 때만 패널을 보여준다 (아무것도 선택 안 하면 숨김)
+    const fid = three3Sel, it = fid && f.items[fid];
+    const selEq = it && EQUIPMENT.find(e => e.id === it.eqId);
+    if (!it || !selEq || selEq.cat !== 'CAM') { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
     const eq = EQUIPMENT.find(e => e.id === it.eqId);
     const L = lensSpecOf(it);
@@ -7398,7 +7392,7 @@ function toggleShadows() {
 }
 function setFocal(v) {
     focalMM = Math.max(8, Math.min(400, parseFloat(v) || 35));
-    document.getElementById('foc-in').value = focalMM;
+    const fi = document.getElementById('foc-in'); if (fi) fi.value = focalMM;   // 툴바 입력 제거됨 → 방어
     build3D();
 }
 function pickLens(v) {
@@ -7443,8 +7437,10 @@ function setView(k) {
 }
 function renderPNG() {
     if (!R3) { alert('3D를 사용할 수 없어 렌더 이미지를 만들 수 없습니다.'); return; }
+    const pv = previewOn; previewOn = false;      // 저장 이미지엔 프리뷰(PiP) 를 넣지 않는다
     draw3D();
     const url = R3.renderer.domElement.toDataURL('image/png');
+    previewOn = pv; draw3D();                      // 화면의 프리뷰는 원래대로 복원
     const a = document.createElement('a');
     a.href = url;
     a.download = `${currentScene().name}_3D_${new Date().toISOString().slice(0, 10)}.png`;

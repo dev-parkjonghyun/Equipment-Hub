@@ -65,7 +65,7 @@ h=H.store['scene-body'].innerHTML;
 t('현재 씬 표시', h.includes('plist-item on'));
 t('배치/평면 개수', h.includes('배치 4'), h.match(/배치 \d+/)||'');
 t('씬 관리 버튼', h.includes('새 씬')&&h.includes('씬 삭제'));
-t('백업 설명 + 파일 버튼', h.includes('백업 · 공유') && h.includes('파일로 저장'));
+t('저장 위치 안내(JSON 버튼 숨김)', (h.includes('서버에 저장')||h.includes('이 브라우저에만')) && !h.includes('파일로 저장') && !h.includes('파일 불러오기'));
 
 console.log('=== 7. 기존 호환 ===');
 A.switchTab('sets');

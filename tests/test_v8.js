@@ -58,12 +58,12 @@ t('클릭 가능한 씬 칩', html.includes('id="scene-chip"')&&html.includes("o
 A.switchMode('layout');
 t('씬 이름 표시', H.store['scene-chip'].innerHTML.includes('씬'), H.store['scene-chip'].innerHTML);
 
-console.log('=== 6. JSON 설명 ===');
+console.log('=== 6. 저장 안내 + JSON UI 숨김 ===');
 A.openPane('scenes');
 const sp=H.store['scene-body'].innerHTML;
-t('백업·공유 섹션', sp.includes('백업 · 공유'));
-t('필요 이유 설명', sp.includes('이 브라우저에만')&&sp.includes('로그인하면 서버에 저장'));
-t('버튼 문구 명확화', sp.includes('파일로 저장')&&sp.includes('파일 불러오기'));
+t('저장 위치 안내', sp.includes('이 브라우저에만')&&sp.includes('로그인하면 서버에 저장'));
+t('JSON 버튼 숨김(함수는 유지)', !sp.includes('파일로 저장')&&!sp.includes('파일 불러오기')
+  &&html.includes('function exportJSON')&&html.includes('function importJSON'));
 
 console.log('=== 7. 평면도 라벨 겹침 ===');
 t('라벨은 별도 픽셀 레이어', html.includes('function labelSVG')&&html.includes('class="flabels"'));
