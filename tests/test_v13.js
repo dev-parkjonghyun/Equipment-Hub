@@ -62,6 +62,7 @@ t('앉은 눈높이가 더 낮음', A.subjectEyeY({h:1.7,pose:'sit'}) < A.subjec
   `${A.subjectEyeY({h:1.7,pose:'sit'}).toFixed(2)} vs ${A.subjectEyeY({h:1.7,pose:'stand'}).toFixed(2)}`);
 t('앉은 눈높이 ≈1.29m', near(A.subjectEyeY({h:1.7,pose:'sit'}),1.29,0.05));
 t('조준점도 자세 반영', A.subjectAim({h:1.7,pose:'sit',x:0,y:0}).y < A.subjectAim({h:1.7,pose:'stand',x:0,y:0}).y);
+t('피사체 조준 시 포커스도 자동 설정', html.includes('it.focus = +bd.toFixed(2)'));
 
 console.log('=== 4. 파라볼릭 소프트박스 ===');
 const sb=A.parabolicSoftbox(0.45,0.42,16);

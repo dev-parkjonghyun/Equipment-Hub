@@ -60,6 +60,21 @@ t('멀리 나가도 안으로', (()=>{const c=A.clampToRoom(20,20,0.3);
    return A.pointInPoly(A.roomPoly(f.rooms[0]),c.x,c.y);})());
 t('안쪽은 유지', (()=>{const c=A.clampToRoom(1.5,1.5,0.2);return !c.hit;})());
 
+console.log('=== 3b. 방을 옮기면 내부 장비도 함께 ===');
+A.clearScene(); A.switchMode('floor');
+{ const g=A.F();
+  g.rooms=[{id:'r1',name:'방',type:'rect',x:2,y:2,w:5,h:4}];
+  g.items={ i1:{eqId:'CAM-003',x:4,y:3}, i2:{eqId:'LIT-009',x:5,y:4}, out:{eqId:'MON-001',x:15,y:15} };
+  const z=g.zoom, ev=(mx,my)=>({clientX:mx*z,clientY:my*z,stopPropagation(){},preventDefault(){}});
+  A.startFloorDrag(ev(4,3),'room','r1');
+  A.doFloorDrag(ev(6,5));                 // +2, +2 이동
+  A.endFloorDrag();
+  t('방이 +2,+2 이동', g.rooms[0].x===4 && g.rooms[0].y===4, `${g.rooms[0].x},${g.rooms[0].y}`);
+  t('방 안 장비 함께 이동', g.items.i1.x===6 && g.items.i1.y===5 && g.items.i2.x===7 && g.items.i2.y===6,
+    JSON.stringify(g.items));
+  t('방 밖 장비는 그대로', g.items.out.x===15 && g.items.out.y===15);
+}
+
 console.log('=== 4. 배치·이동이 방을 벗어나지 않는다 ===');
 A.clearScene(); A.switchMode('layout');
 A.addBlockAt('LIT-009',100,100);

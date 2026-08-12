@@ -4426,6 +4426,12 @@ function startFloorDrag(e, type, id) {
             const o = f.items[k] || (f.subjects || []).find(x => x.id === k);
             if (o) grp.push({ o, ox: o.x, oy: o.y });
         });
+    } else if (type === 'room') {
+        grp.push({ o: obj, ox: obj.x, oy: obj.y });
+        // 방(벽)을 옮기면 그 안에 놓인 장비·피사체도 함께 이동
+        const poly = roomPoly(obj);
+        Object.values(f.items).forEach(o => { if (pointInPoly(poly, o.x, o.y)) grp.push({ o, ox: o.x, oy: o.y }); });
+        (f.subjects || []).forEach(o => { if (pointInPoly(poly, o.x, o.y)) grp.push({ o, ox: o.x, oy: o.y }); });
     } else {
         if (type === 'item' || type === 'subject') { fMulti.clear(); fMulti.add(id); }
         grp.push({ o: obj, ox: obj.x, oy: obj.y });
@@ -7337,8 +7343,9 @@ function lookAtSubject() {
     const dx = a.x - it.x, dz = a.z - it.y, dy = a.y - camEyeY(it);
     it.pan = +(Math.atan2(dx, dz) * 180 / Math.PI).toFixed(1);
     it.tilt = +(Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI).toFixed(1);
+    it.focus = +bd.toFixed(2);              // 조준한 피사체 거리로 포커스도 자동 설정
     saveState(); build3D(); updateCamPanel();
-    setStatus(`피사체를 조준했습니다 (거리 ${bd.toFixed(2)}m)`);
+    setStatus(`피사체를 조준하고 포커스를 맞췄습니다 (거리 ${bd.toFixed(2)}m)`);
 }
 
 function updateCamPanel() {
