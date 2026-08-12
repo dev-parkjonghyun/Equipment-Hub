@@ -867,7 +867,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                     <button onclick="sortWithinGroups()">🗂 그룹 안 카테고리 정렬</button>
                     <div class="sep"></div>
                     <div class="mlabel">전체 배치</div>
-                    <button onclick="autoArrangeByCategory()">📄 카테고리별 행 정리</button>
+                    <button onclick="autoArrangeByCategory()">📄 카테고리별 열 정리</button>
                     <button onclick="snapAll()">⊞ 전체 격자 맞춤</button>
                     <div class="sep"></div>
                     <div class="mlabel">선택 항목 정렬 (2개+)</div>
@@ -2220,6 +2220,25 @@ function selectedBlockIds() {
 // 🗂 그룹 안 카테고리 정렬 — 그룹은 유지하고 내부 블록만 카테고리순 재배치
 const GRP_COLS = 4, GRP_GAP_X = 155, GRP_GAP_Y = 70, GRP_PAD = 14, GRP_LABEL_H = 28;
 
+// 정렬용: 블록의 실제 렌더 발자국(px). 배치도 캔버스는 줌이 없어 1:1 로 잰다.
+// 선 연결(link) 모드에선 부품이 루트 아래로 따로 뻗으므로 그만큼 더 잡는다.
+function blockFootprint(bid, scene) {
+    const canvas = document.getElementById('canvas');
+    const el = canvas && canvas.querySelector(`.block[data-bid="${bid}"]`);
+    let w = 220, h = 72;
+    if (el && el.getBoundingClientRect) {
+        const r = el.getBoundingClientRect();
+        if (r.width) w = r.width;
+        if (r.height) h = r.height;
+    }
+    const parts = linkChain(bid, scene).length;
+    if (rigView === 'link' && parts > 0) {
+        h = Math.max(h, LINK_TOP + (parts - 1) * LINK_GAP + 64);
+        w += 30;                       // 부품이 +30px 우측으로 물림
+    }
+    return { w, h };
+}
+
 function sortOneGroup(gid) {
     const scene = currentScene();
     const g = scene.groups[gid];
@@ -2235,6 +2254,14 @@ function sortOneGroup(gid) {
         (byCat[cat] = byCat[cat] || []).push(bid);
     }
 
+    // 실제 블록 크기 기준으로 셀 크기를 잡아 겹치지 않게 한다
+    let cellW = 0, cellH = 0;
+    for (const bid of members) {
+        const s = blockFootprint(bid, scene);
+        cellW = Math.max(cellW, s.w); cellH = Math.max(cellH, s.h);
+    }
+    const stepX = cellW + 26, stepY = cellH + 22;
+
     const x0 = g.x + GRP_PAD, y0 = g.y + GRP_LABEL_H;
     let row = 0, maxCols = 0;
 
@@ -2245,16 +2272,16 @@ function sortOneGroup(gid) {
         bids.sort((a, b) => scene.blocks[a].eqId.localeCompare(scene.blocks[b].eqId));
         bids.forEach((bid, i) => {
             const b = scene.blocks[bid];
-            b.x = x0 + (i % GRP_COLS) * GRP_GAP_X;
-            b.y = y0 + (row + Math.floor(i / GRP_COLS)) * GRP_GAP_Y;
+            b.x = x0 + (i % GRP_COLS) * stepX;
+            b.y = y0 + (row + Math.floor(i / GRP_COLS)) * stepY;
         });
         maxCols = Math.max(maxCols, Math.min(GRP_COLS, bids.length));
         row += Math.ceil(bids.length / GRP_COLS);
     }
 
-    // 그룹 박스 크기를 내용에 맞게 재조정
-    g.w = GRP_PAD * 2 + (maxCols - 1) * GRP_GAP_X + BLOCK_W;
-    g.h = GRP_LABEL_H + (row - 1) * GRP_GAP_Y + BLOCK_H + GRP_PAD;
+    // 그룹 박스 크기를 내용(실측 셀)에 맞게 재조정
+    g.w = GRP_PAD * 2 + (maxCols - 1) * stepX + cellW;
+    g.h = GRP_LABEL_H + (row - 1) * stepY + cellH + GRP_PAD;
     return members.length;
 }
 
@@ -2279,6 +2306,7 @@ function sortWithinGroups() {
         }
     }
 
+    renderCanvas();                    // 실측을 위해 현재 상태를 먼저 그린다
     let total = 0, done = 0;
     for (const gid of gids) {
         const n = sortOneGroup(gid);
@@ -2306,26 +2334,30 @@ function autoArrangeByCategory() {
         (byCat[cat] = byCat[cat] || []).push(bid);
     }
     // 기존 그룹 아래쪽부터 시작 (그룹과 겹치지 않게)
-    let y = 20;
-    for (const g of Object.values(scene.groups)) y = Math.max(y, g.y + g.h + 40);
+    let y0 = 20;
+    for (const g of Object.values(scene.groups)) y0 = Math.max(y0, g.y + g.h + 40);
 
-    const COLS = 6, GAP_X = 155, GAP_Y = 70, ROW_GAP = 34;
-    let catCount = 0;
+    renderCanvas();                    // 실측을 위해 먼저 그린다
+    // 카테고리마다 '한 열' — 블록을 세로로 쌓고, 실제 크기만큼 띄워 겹치지 않게 한다
+    const COL_GAP = 34, ROW_GAP = 26, X0 = 20;
+    let x = X0, catCount = 0;
     for (const cat of CAT_ORDER) {
         const bids = byCat[cat];
         if (!bids) continue;
         catCount++;
-        // 자산번호순 정렬
         bids.sort((a, b) => scene.blocks[a].eqId.localeCompare(scene.blocks[b].eqId));
-        bids.forEach((bid, i) => {
-            const col = i % COLS, row = Math.floor(i / COLS);
-            scene.blocks[bid].x = 20 + col * GAP_X;
-            scene.blocks[bid].y = y + row * GAP_Y;
-        });
-        y += Math.ceil(bids.length / COLS) * GAP_Y + ROW_GAP;
+        let y = y0, colW = 0;
+        for (const bid of bids) {
+            const s = blockFootprint(bid, scene);
+            scene.blocks[bid].x = x;
+            scene.blocks[bid].y = y;
+            y += s.h + ROW_GAP;         // 실제 높이만큼 내려 세로 겹침 방지
+            colW = Math.max(colW, s.w);
+        }
+        x += colW + COL_GAP;            // 다음 카테고리 = 다음 열, 실제 폭만큼 띄워 가로 겹침 방지
     }
     saveState(); renderCanvas();
-    setStatus(`카테고리별 정리 완료 — ${free.length}개 블록, ${catCount}개 카테고리`);
+    setStatus(`카테고리별 정리 완료 — ${free.length}개 블록, ${catCount}개 열`);
 }
 
 // 전체 격자 맞춤
@@ -2812,11 +2844,17 @@ async function createShareLink() {
     showShareResult(link, days, bytes);
     renderScenePane();
 }
+// 날짜+시간 표기 (예: "8/12 오후 2:30")
+function fmtShareTime(t) {
+    return new Date(t).toLocaleString('ko-KR',
+        { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 function showShareResult(link, days, bytes) {
     const box = document.getElementById('share-modal');
     document.getElementById('share-link').value = link;
+    const expiry = fmtShareTime(Date.now() + days * 864e5);
     document.getElementById('share-meta').textContent =
-        `${days}일 후 만료 · ${(bytes / 1024).toFixed(0)}KB · 보기 전용`;
+        `${days}일 후 만료 (${expiry}까지) · ${(bytes / 1024).toFixed(0)}KB · 보기 전용`;
     box.classList.add('on');
 }
 function copyShareLink() {
@@ -5098,7 +5136,7 @@ function renderScenePane() {
             (state.shares || []).slice(0, 6).map(x => `
               <div class="share-row ${x.dead ? 'dead' : ''}">
                 <span class="sr-n">${esc(x.name)}</span>
-                <span class="sr-d">${new Date(x.at).toLocaleDateString('ko-KR')}</span>
+                <span class="sr-d">${fmtShareTime(x.at)}${x.days ? ` · ${x.days}일` : ''}</span>
                 ${x.dead ? '<span class="sr-d">회수됨</span>'
                   : `<button class="danger" style="padding:3px 8px;font-size:10px"
                        onclick="revokeShare('${x.id}')">회수</button>`}
