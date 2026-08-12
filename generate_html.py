@@ -7,6 +7,17 @@ with open(os.path.join(ROOT, 'equipment_data.json'), encoding='utf-8') as f:
 
 DATA_JSON = json.dumps(equipment, ensure_ascii=False)
 
+# 3D 워터마크 (샘플) — 자산 소유 표시용. 실제 로고로 바꾸려면 아래 SVG 를 교체하거나,
+# 빌드된 HTML 의 #three-wm 태그 src 를 원하는 이미지 URL/데이터URI 로 바꾸면 됩니다.
+import base64
+_WM_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="112" viewBox="0 0 400 112">'
+    '<rect x="8" y="8" width="384" height="96" rx="16" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.55"/>'
+    '<text x="200" y="60" font-family="-apple-system,Segoe UI,Helvetica,sans-serif" font-size="44" '
+    'font-weight="800" letter-spacing="6" text-anchor="middle" fill="#ffffff">EH STUDIO</text>'
+    '<text x="200" y="88" font-family="-apple-system,Segoe UI,sans-serif" font-size="14" '
+    'letter-spacing="9" text-anchor="middle" fill="#ffffff" opacity="0.85">SAMPLE WATERMARK</text></svg>')
+WM_DATA = 'data:image/svg+xml;base64,' + base64.b64encode(_WM_SVG.encode('utf-8')).decode('ascii')
+
 # Three.js (r149 UMD) 인라인 — 오프라인에서도 3D 동작
 # Three.js 는 저장소에 두거나(vendor/) npm 으로 받습니다.
 THREE_PATH = next((p for p in [
@@ -283,6 +294,11 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   background:rgba(52,34,10,.8);padding:6px 11px;border-radius:var(--r-s);
   border:1px solid #6b4a1c;display:inline-block}
 #three-warn:empty{display:none}
+/* 3D 워터마크(샘플) — 자산 소유 표시. 시선이 머무는 가운데에 은은하게. pointer-events 없음.
+   위치·크기·진하기는 top/left/width/opacity 로 조절, 이미지는 #three-wm src 교체. */
+#three-wm{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+  width:min(34%,320px);opacity:.13;pointer-events:none;user-select:none;z-index:42;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
 .tlab{font-size:11.5px;color:var(--tx-2);display:inline-flex;align-items:center;gap:6px}
 .tlab input{width:64px}
 #lens-sel{max-width:178px}
@@ -966,6 +982,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
         </div>
         <div id="three-wrap">
             <canvas id="three-canvas"></canvas>
+            <img id="three-wm" src="__WATERMARK__" alt="" draggable="false">
             <div id="pv-frame"><div id="pv-guides"></div><div id="pv-label"></div></div>
             <div id="cam-panel">
                 <div class="cp-head">📷 <span id="cp-name">카메라 없음</span></div>
@@ -4431,7 +4448,10 @@ function doFloorDrag(e) {
     const put = (o, gx, gy) => {
         if (snapEnabled) { gx = Math.round(gx * 10) / 10; gy = Math.round(gy * 10) / 10; }
         o.x = +gx.toFixed(3); o.y = +gy.toFixed(3);
-        if (fDrag.type === 'subject' || o.h !== undefined) confineSubject(o); else confineItem(o);
+        // 장비·피사체만 방 안으로 가둔다. 방(room)·배경(bg)을 가두면 자기 자신 안으로
+        // 클램프되며 엉뚱한 곳으로 튄다 → 벽 이동이 끊겨 이상한 위치에 놓이던 버그.
+        if (fDrag.type === 'subject') confineSubject(o);
+        else if (fDrag.type === 'item') confineItem(o);
     };
     if (fDrag.grp && fDrag.grp.length > 1) fDrag.grp.forEach(g => put(g.o, g.ox + dx, g.oy + dy));
     else put(obj, fDrag.ox + dx, fDrag.oy + dy);
@@ -7656,6 +7676,7 @@ applyEqEdits();
 
 HTML = HTML.replace('__DATA__', DATA_JSON)
 HTML = HTML.replace('/*__THREEJS__*/', THREE_SRC)
+HTML = HTML.replace('__WATERMARK__', WM_DATA)
 
 OUT = os.path.join(ROOT, 'dist', 'index.html')
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
