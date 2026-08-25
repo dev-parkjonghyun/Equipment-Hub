@@ -6608,18 +6608,21 @@ function buildItemMesh(eq, it) {
         pan.rotation.x = 1.15; pan.rotation.z = -0.22;
         head.position.y = h; head.rotation.y = yaw;
         grp.add(head);
-    } else if (eq.cat === 'STD' && isAStandPro(eq)) {   // ── 전용 A스탠드 (VALENS PRO-403A) ──
+    } else if (eq.cat === 'STD' && isCStandPro(eq)) {   // ── 전용 C스탠드 (VALENS PRO-40T) ──
+        const csH = Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h));
+        grp.add(valensPro40t(Object.assign({}, sp, { h: csH })));
+        // 그립암은 별도 액세서리 — 결합했을 때만 그린다
+        if (armKitOf(it))
+            gripArm(grp, sp.arm || 1.0, csH - 0.02, yaw,
+                rigParts(it).filter(p => p.slot === 'hang'));
+    } else if (eq.cat === 'STD' && isAStandPro(eq)) {   // ── 전용 A스탠드 (VALENS PRO-403A, A·작은A·T) ──
         grp.add(valensPro403a(Object.assign({}, sp, {
             h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
-    } else if (eq.cat === 'STD' && isTStandPro(eq)) {   // ── 전용 T/크롬 스탠드 (VALENS PRO-40T) ──
-        grp.add(valensPro40t(Object.assign({}, sp, {
-            h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
-    } else if (eq.cat === 'STD') {                // ── 스탠드 (일반) ──
+    } else if (eq.cat === 'STD') {                // ── 스탠드 (일반 폴백) ──
         const isC = eq.id.startsWith('STD-C');
         if (isC) {
             cStandBase(grp, sp.w);
             chromeRiser(grp, 0.26, h, 2);
-            // 그립암은 별도 액세서리 — 결합했을 때만 그린다
             if (armKitOf(it))
                 gripArm(grp, sp.arm || 1.0, h - 0.02, yaw,
                     rigParts(it).filter(p => p.slot === 'hang'));

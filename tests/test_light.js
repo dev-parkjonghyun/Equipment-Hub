@@ -2,7 +2,7 @@
 const {APP}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
 const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,projectionMesh,isProjection,
- isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isTStandPro,isTerisTripod,geoBatch,
+ isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
  buildItemMesh,specOf,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
@@ -49,8 +49,8 @@ console.log('=== 6. 사용자 제작 모델 통합 (Downloads/3d) ===');
 t('60B 인식(LIT-005/006)', A.isForza60B({id:'LIT-005'}) && A.isForza60B({id:'LIT-006'}));
 t('AD300Pro 인식(LIT-009)', A.isAD300Pro({id:'LIT-009'}));
 t('프레넬 인식(MOD-005)', A.isFresnelMod({id:'MOD-005'}));
-t('A스탠드 인식(STD-A)', A.isAStandPro({id:'STD-A-001'}));
-t('T스탠드 인식(STD-T)', A.isTStandPro({id:'STD-T-001'}));
+t('A스탠드 계열 인식(A·작은A·T)', A.isAStandPro({id:'STD-A-001'}) && A.isAStandPro({id:'STD-AS-001'}) && A.isAStandPro({id:'STD-T-001'}));
+t('C스탠드 인식(STD-C)', A.isCStandPro({id:'STD-C-001'}) && !A.isAStandPro({id:'STD-C-001'}));
 t('Teris 삼각대 인식(TRP-003)', A.isTerisTripod({id:'TRP-003'}));
 // SPECS 공식 치수 반영
 t('60B 공식 치수(247×134×87mm)', (()=>{const s=A.specOf('LIT-005');return s.d===0.247&&s.w===0.134&&s.h===0.087&&s.src==='spec';})());
@@ -61,8 +61,10 @@ t('geoBatch가 지오메트리를 합침', (()=>{const g=A.geoBatch([{geo:new TH
 t('60B 헤드가 일반 조명보다 디테일', nodes(build('LIT-005'))>nodes(build('LIT-004')), `${nodes(build('LIT-005'))} vs ${nodes(build('LIT-004'))}`);
 t('AD300 헤드가 일반 조명보다 디테일', nodes(build('LIT-009'))>nodes(build('LIT-004')));
 t('프레넬(MOD-005) 배럴 형태', (()=>{const d=dim(build('MOD-005'));return d.z>0.05;})());
-t('A스탠드가 일반 스탠드보다 디테일', nodes(build('STD-A-001'))>=6, nodes(build('STD-A-001')));
-t('T/크롬 스탠드 디테일', nodes(build('STD-T-001'))>=6, nodes(build('STD-T-001')));
+t('A스탠드 디테일(STD-A)', nodes(build('STD-A-001'))>=6, nodes(build('STD-A-001')));
+t('작은 A스탠드도 A모델', nodes(build('STD-AS-001'))>=6, nodes(build('STD-AS-001')));
+t('T스탠드도 A모델', nodes(build('STD-T-001'))>=6, nodes(build('STD-T-001')));
+t('C스탠드 전용 모델(PRO-40T)', nodes(build('STD-C-001'))>=6, nodes(build('STD-C-001')));
 t('Teris 삼각대 디테일(카본 트윈튜브+헤드)', nodes(build('TRP-003'))>=6, nodes(build('TRP-003')));
 { const d=dim(build('TRP-003')); t('삼각대 다리 펼침(약 1m)', d.x>0.8, JSON.stringify(d)); }
 

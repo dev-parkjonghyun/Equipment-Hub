@@ -98,7 +98,7 @@ const cs2=new THREE.Group(); A.gripArm(cs2,1.02,2.18,0,[]);
 t('그립암 1m', near(bbox(cs2).max.x,1.05,0.1), bbox(cs2).max.x.toFixed(2));
 // 실제 STD-C 렌더
 const cstand=A.buildItemMesh(A.EQ().find(e=>e.id==='STD-C-001'),{eqId:'STD-C-001',x:0,y:0,h3:2.2,rot:0,parts:[]});
-t('STD-C가 새 모델 사용 (암 없이 기둥+베이스)', nodes(cstand)>=20 && nodes(cstand)<32, nodes(cstand));
+t('STD-C가 전용 C스탠드 모델(PRO-40T) 사용', nodes(cstand)>=6 && nodes(cstand)<32, nodes(cstand));
 t('A스탠드는 기존 모델', html.includes('legSet(grp, sp.w, h * 0.3);'));
 
 console.log('=== 6. 3D에서 피사체 선택·이동 ===');

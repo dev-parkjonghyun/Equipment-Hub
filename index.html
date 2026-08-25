@@ -6822,19 +6822,24 @@ SPECS['TRP-003'] = { w: 1.05, h: 1.30, d: 1.05, src: 'spec',
     stages: 2, tubeUp: 0.025, tubeLo: 0.022, twinGap: 0.027, hingeR: 0.058,
     legMin: 0.78, legMax: 1.60,
     yBowl: 0.055, yPlate: 0.100, plateL: 0.132, plateW: 0.062, barLen: 0.400 };
-// VALENS PRO-403A A스탠드 → STD-A-001~004
-['STD-A-001', 'STD-A-002', 'STD-A-003', 'STD-A-004'].forEach(id => {
-    SPECS[id] = { w: 1.28, h: 2.00, d: 1.28, src: 'spec',
-        hMin: 1.22, hMax: 3.00, spreadD: 1.28,
+// VALENS PRO-403A A스탠드 → 모든 A스탠드(STD-A 4개) · 작은 A스탠드(STD-AS 2개) · T스탠드(STD-T)
+function _aStandSpec(scale) {
+    return { w: 1.28 * scale, h: 2.00 * scale, d: 1.28 * scale, src: 'spec',
+        hMin: 1.22 * scale, hMax: 3.00 * scale, spreadD: 1.28 * scale,
         tubeA: 0.025, tubeB: 0.030, tubeC: 0.035, legTube: 0.022,
-        yHub: 0.37, spigotD: 0.016, spigotL: 0.070 };
+        yHub: 0.37 * scale, spigotD: 0.016, spigotL: 0.070 };
+}
+['STD-A-001', 'STD-A-002', 'STD-A-003', 'STD-A-004', 'STD-T-001'].forEach(id => { SPECS[id] = _aStandSpec(1.0); });
+// 작은 A스탠드는 축소 비율
+['STD-AS-001', 'STD-AS-002'].forEach(id => { SPECS[id] = _aStandSpec(0.62); });
+// VALENS PRO-40T (진짜 C스탠드형 크롬 스탠드) → 실제 C스탠드 STD-C-001~003
+['STD-C-001', 'STD-C-002', 'STD-C-003'].forEach(id => {
+    SPECS[id] = { w: 1.04, h: 2.20, d: 1.04, src: 'spec',
+        hMin: 1.45, hMax: 3.23, spreadD: 1.04,
+        tubeA: 0.025, tubeB: 0.030, tubeC: 0.035, legTube: 0.019, fold: 0,
+        legArm: 0.415, legTip: 0.155, bendDeg: 52, legHubR: 0.030,
+        yBase: 0.30, legY: [0.130, 0.185, 0.240], spigotD: 0.016, spigotL: 0.070 };
 });
-// VALENS PRO-40T (파일상 C스탠드형 크롬 스탠드) → STD-T-001
-SPECS['STD-T-001'] = { w: 1.04, h: 2.20, d: 1.04, src: 'spec',
-    hMin: 1.45, hMax: 3.23, spreadD: 1.04,
-    tubeA: 0.025, tubeB: 0.030, tubeC: 0.035, legTube: 0.019, fold: 0,
-    legArm: 0.415, legTip: 0.155, bendDeg: 52, legHubR: 0.030,
-    yBase: 0.30, legY: [0.130, 0.185, 0.240], spigotD: 0.016, spigotL: 0.070 };
 
 // 서브 부품 스펙 (자산 아님 — 빌더에 넘긴다)
 const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45 };
@@ -6843,8 +6848,10 @@ const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45
 function isForza60B(eq) { return eq && (['LIT-005','LIT-006'].includes(eq.id) || /forza\s*60|fs-?60/i.test(eq.product || '')); }
 function isAD300Pro(eq) { return eq && (eq.id === 'LIT-009' || /ad300\s*pro/i.test(eq.product || '')); }
 function isFresnelMod(eq) { return eq && (eq.id === 'MOD-005' || /fresnel|프레넬|fl-?11/i.test(eq.product || '')); }
-function isAStandPro(eq) { return eq && (/^STD-A-/.test(eq.id) || /pro-?403a/i.test(eq.product || '')); }
-function isTStandPro(eq) { return eq && (/^STD-T-/.test(eq.id) || /pro-?40t/i.test(eq.product || '')); }
+// A스탠드 계열(A·작은A·T) = PRO-403A 모델
+function isAStandPro(eq) { return eq && (/^STD-A-/.test(eq.id) || /^STD-AS-/.test(eq.id) || /^STD-T-/.test(eq.id) || /pro-?403a/i.test(eq.product || '')); }
+// C스탠드 = PRO-40T 모델
+function isCStandPro(eq) { return eq && (/^STD-C-/.test(eq.id) || /pro-?40t/i.test(eq.product || '')); }
 function isTerisTripod(eq) { return eq && (eq.id === 'TRP-003' || /tsn6|teris/i.test(eq.product || '')); }
 
 function tint(cat, o) {
@@ -7407,18 +7414,21 @@ function buildItemMesh(eq, it) {
         pan.rotation.x = 1.15; pan.rotation.z = -0.22;
         head.position.y = h; head.rotation.y = yaw;
         grp.add(head);
-    } else if (eq.cat === 'STD' && isAStandPro(eq)) {   // ── 전용 A스탠드 (VALENS PRO-403A) ──
+    } else if (eq.cat === 'STD' && isCStandPro(eq)) {   // ── 전용 C스탠드 (VALENS PRO-40T) ──
+        const csH = Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h));
+        grp.add(valensPro40t(Object.assign({}, sp, { h: csH })));
+        // 그립암은 별도 액세서리 — 결합했을 때만 그린다
+        if (armKitOf(it))
+            gripArm(grp, sp.arm || 1.0, csH - 0.02, yaw,
+                rigParts(it).filter(p => p.slot === 'hang'));
+    } else if (eq.cat === 'STD' && isAStandPro(eq)) {   // ── 전용 A스탠드 (VALENS PRO-403A, A·작은A·T) ──
         grp.add(valensPro403a(Object.assign({}, sp, {
             h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
-    } else if (eq.cat === 'STD' && isTStandPro(eq)) {   // ── 전용 T/크롬 스탠드 (VALENS PRO-40T) ──
-        grp.add(valensPro40t(Object.assign({}, sp, {
-            h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
-    } else if (eq.cat === 'STD') {                // ── 스탠드 (일반) ──
+    } else if (eq.cat === 'STD') {                // ── 스탠드 (일반 폴백) ──
         const isC = eq.id.startsWith('STD-C');
         if (isC) {
             cStandBase(grp, sp.w);
             chromeRiser(grp, 0.26, h, 2);
-            // 그립암은 별도 액세서리 — 결합했을 때만 그린다
             if (armKitOf(it))
                 gripArm(grp, sp.arm || 1.0, h - 0.02, yaw,
                     rigParts(it).filter(p => p.slot === 'hang'));
