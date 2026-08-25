@@ -5479,6 +5479,7 @@ function specOf(eqId) {
 // 스탠드/삼각대에 올라가는 장비 → 기본 설치 높이
 const MOUNTED = { LIT: 2.0, MOD: 1.85, CAM: 1.45, MON: 1.30 };
 function defaultHeight(eq) {
+    if (isTriflector(eq)) return 1.50;   // Triflector 키트는 스탠드 포함 — 기본 150cm
     if (eq.cat === 'STD' || eq.cat === 'TRP') return specOf(eq.id).h;
     return MOUNTED[eq.cat] !== undefined ? MOUNTED[eq.cat] : 0;
 }
@@ -6683,8 +6684,12 @@ function buildItemMesh(eq, it) {
                 addMesh(grp, new THREE.BoxGeometry(bs.w || 0.09, bs.h || 0.14, bs.d || 0.06),
                     mat(0x23272e, { roughness: .7 }), 0.055, standH * 0.42 + i * 0.16, 0.045);
             });
+        } else if (isTriflector(eq)) {
+            // Triflector MkII 키트 = 스탠드 기본 포함 → 지지대 미결합이어도 항상 스탠드를 그린다
+            grp.add(valensPro403a(Object.assign({}, specOf('STD-A-001'), {
+                h: Math.max(1.0, standH) })));
         }
-        // 지지대가 없으면 스탠드/삼각대를 그리지 않는다 (카메라 단독 = 삼각대 없음)
+        // 그 밖에 지지대가 없으면 스탠드/삼각대를 그리지 않는다 (카메라 단독 = 삼각대 없음)
         const head = new THREE.Group();
         head.name = 'head_' + eq.cat;
         head.position.y = standH;

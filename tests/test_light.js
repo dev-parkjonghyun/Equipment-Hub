@@ -4,7 +4,7 @@ const {makeHarness}=require('./harness.js');
 const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,projectionMesh,isProjection,
  isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
- buildItemMesh,specOf,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
+ buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
 const t=(n,c,i)=>{c?(pass++,console.log('  ✅',n)):(fail++,console.log('  ❌',n,i===undefined?'':i))};
@@ -83,6 +83,10 @@ t('카메라 단독 바닥~머리 사이가 비어있음(다리 없음)', (()=>{
 t('조명+A스탠드 = 최신 모델', nodes(rig('LIT-001',[{eqId:'STD-A-001',slot:'support'}],2.0))>=8);
 t('조명+C스탠드 = 최신 모델', nodes(rig('LIT-005',[{eqId:'STD-C-001',slot:'support'}],2.0))>=8);
 t('카메라+삼각대 = 최신 Teris', nodes(camTrp)>=8, nodes(camTrp));
+// Triflector MkII 키트 = 스탠드 항상 포함 + 기본 높이 150cm
+const trif=rig('MOD-010',[],1.5), trifMid=(()=>{let n=0;trif.updateMatrixWorld(true);trif.traverse(m=>{if(m.isMesh){const b=new THREE.Box3().setFromObject(m);const cy=(b.min.y+b.max.y)/2;if(cy>0.3&&cy<1.1)n++;}});return n;})();
+t('Triflector는 지지대 없어도 스탠드 있음', trifMid>0, trifMid);
+t('Triflector 기본 높이 150cm', A.defaultHeight(A.EQ().find(e=>e.id==='MOD-010'))===1.50);
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
