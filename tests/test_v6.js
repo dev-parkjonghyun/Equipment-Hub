@@ -81,14 +81,14 @@ t('렌즈 슬롯 조회', A.partIn(ci,'lens')==='LEN-002');
 console.log('=== 5. 조립체 기준 발자국/높이 ===');
 const fpCam=A.rigFootprint(ci);
 t('카메라 발자국 = 삼각대 1.05m (0.3m 아님)', near(fpCam.w,1.05), fpCam.w);
-t('조명 발자국 = A스탠드 0.9m', near(A.rigFootprint(li).w,0.9), A.rigFootprint(li).w);
+t('조명 발자국 = A스탠드 1.28m(PRO-403A 공식)', near(A.rigFootprint(li).w,1.28), A.rigFootprint(li).w);
 t('카메라 높이 = 504X 기본 1.30m', near(ci.h3,1.30), ci.h3);
 t('조명 높이 = LS-288 기본 2.00m', near(li.h3,2.00), li.h3);
 const rg=A.rigRange(ci);
 t('높이 범위 = 삼각대 0.435~1.73m', rg && near(rg.min,0.435) && near(rg.max,1.73), JSON.stringify(rg));
 t('범위 출처 표기', rg.src==='TRP-001');
 const rgL=A.rigRange(li);
-t('조명 범위 = 스탠드 1.08~2.88m', near(rgL.min,1.08)&&near(rgL.max,2.88));
+t('조명 범위 = A스탠드 1.22~3.00m(PRO-403A 공식)', near(rgL.min,1.22)&&near(rgL.max,3.00), JSON.stringify(rgL));
 
 console.log('=== 6. 3D 조립 메시 ===');
 A.switchMode('three');

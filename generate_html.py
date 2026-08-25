@@ -28,6 +28,11 @@ THREE_PATH = next((p for p in [
 THREE_SRC = open(THREE_PATH, encoding='utf-8').read() if os.path.exists(THREE_PATH) else ''
 print(f"Three.js 인라인: {len(THREE_SRC)/1024:.0f} KB")
 
+# 사용자 제작 3D 모델(조명·모디파이어·스탠드·삼각대) — 빌드 시 인라인
+MODELS_PATH = os.path.join(ROOT, 'vendor', 'models3d.js')
+MODELS_SRC = open(MODELS_PATH, encoding='utf-8').read() if os.path.exists(MODELS_PATH) else ''
+print(f"3D 모델 인라인: {len(MODELS_SRC)/1024:.0f} KB")
+
 HTML = r"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6042,6 +6047,7 @@ const M = {
     sbOut:  () => mat(0x14161a, { roughness: 0.94, metalness: 0.02 }),   // 소프트박스 외피
     sbRib:  () => mat(0xc8ced6, { metalness: 0.85, roughness: 0.3 })     // 지지살
 };
+/*__MODELS3D__*/
 function tint(cat, o) {
     return mat(parseInt((CAT_COLORS[cat] || '#999999').slice(1), 16),
         Object.assign({ metalness: 0.3, roughness: 0.5 }, o || {}));
@@ -6575,7 +6581,15 @@ function buildItemMesh(eq, it) {
     const h = it.h3 || 0;
     const yaw = -(it.rot || 0) * Math.PI / 180;
 
-    if (eq.cat === 'TRP') {                       // ── 삼각대 ──
+    if (eq.cat === 'TRP' && isTerisTripod(eq)) {  // ── 전용 삼각대 (Teris TSN6CF-Q) ──
+        const tsp = Object.assign({}, sp, {
+            hBowl: Math.max(sp.hBowlMin, Math.min(sp.hBowlMax, h || sp.hBowl)) });
+        grp.add(terisTsn6cfTripod(tsp));
+        const thead = terisTsn6Head(sp);
+        thead.position.y = tsp.hBowl + sp.yBowl;
+        thead.rotation.y = yaw;
+        grp.add(thead);
+    } else if (eq.cat === 'TRP') {                // ── 삼각대 (일반) ──
         legSet(grp, sp.w, h * 0.86);
         addMesh(grp, new THREE.CylinderGeometry(0.021, 0.021, h * 0.3, 10), M.alu(), 0, h * 0.86 + h * 0.13, 0);
         // 미드 스프레더
@@ -6594,7 +6608,13 @@ function buildItemMesh(eq, it) {
         pan.rotation.x = 1.15; pan.rotation.z = -0.22;
         head.position.y = h; head.rotation.y = yaw;
         grp.add(head);
-    } else if (eq.cat === 'STD') {                // ── 스탠드 ──
+    } else if (eq.cat === 'STD' && isAStandPro(eq)) {   // ── 전용 A스탠드 (VALENS PRO-403A) ──
+        grp.add(valensPro403a(Object.assign({}, sp, {
+            h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
+    } else if (eq.cat === 'STD' && isTStandPro(eq)) {   // ── 전용 T/크롬 스탠드 (VALENS PRO-40T) ──
+        grp.add(valensPro40t(Object.assign({}, sp, {
+            h: Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h)) })));
+    } else if (eq.cat === 'STD') {                // ── 스탠드 (일반) ──
         const isC = eq.id.startsWith('STD-C');
         if (isC) {
             cStandBase(grp, sp.w);
@@ -6666,61 +6686,75 @@ function buildItemMesh(eq, it) {
         } else head.rotation.y = yaw;
 
         if (eq.cat === 'LIT') {
-            // 요크(U 브래킷)
-            const yw = sp.w * 0.78;
-            [-1, 1].forEach(s => {
-                const arm = addMesh(head, new THREE.BoxGeometry(0.016, sp.h * 0.95, 0.03), M.aluDk(),
-                    s * yw, sp.h * 0.5 + 0.03, 0);
-            });
-            addMesh(head, new THREE.BoxGeometry(yw * 2, 0.018, 0.035), M.aluDk(), 0, 0.035, 0);
-            // 헤드 — 제품별 전용 형태 우선, 없으면 일반 헤드
-            if (isForza500(eq)) {
-                const cob = cobHeadMesh(sp);
-                cob.position.y = sp.h * 0.55 + 0.03;
-                head.add(cob);
+            // 제품별 전용 헤드(요크 포함) 우선 — NANLITE 60B, Godox AD300Pro
+            const pro60 = isForza60B(eq), proAD = isAD300Pro(eq);
+            // 모디파이어(소프트박스 등) 부착 앵커 — 헤드 타입별 앞면 위치
+            let modY = sp.h * 0.55 + 0.03, modZ = sp.d * 0.5;
+            if (pro60 || proAD) {
+                const ph = (pro60 ? fs60bHead(sp) : ad300ProIIHead(sp));
+                ph.position.y = sp.yokeDrop;              // 스피곳 밑동이 스탠드 상단(=head 원점)에 닿음
+                head.add(ph);
+                modY = sp.yokeDrop + (proAD ? sp.axisY : 0);
+                modZ = sp.zFront;
             } else {
-                // 헤드 본체
-                const body = addMesh(head, new THREE.CylinderGeometry(sp.w * 0.52, sp.w * 0.52, sp.d * 0.72, 16),
-                    M.black(), 0, sp.h * 0.55 + 0.03, 0);
-                body.rotation.x = Math.PI / 2;
-                // 방열 핀
-                for (let i = 0; i < 5; i++)
-                    addMesh(head, new THREE.BoxGeometry(sp.w * 1.02, 0.006, 0.03), M.aluDk(),
-                        0, sp.h * 0.55 + 0.03, -sp.d * 0.36 + i * 0.014);
-                // 리플렉터 + 발광면
-                const ref = addMesh(head, new THREE.CylinderGeometry(sp.w * 1.15, sp.w * 0.55, sp.d * 0.62, 20, 1, true),
-                    mat(0xd8dde3, { metalness: 0.85, roughness: 0.22, side: THREE.DoubleSide }),
-                    0, sp.h * 0.55 + 0.03, sp.d * 0.62);
-                ref.rotation.x = -Math.PI / 2;
-                const face = addMesh(head, new THREE.CircleGeometry(sp.w * 1.12, 22), M.diff(),
-                    0, sp.h * 0.55 + 0.03, sp.d * 0.92, false);
-                face.rotation.y = 0;
-                // 카테고리 컬러 밴드
-                const band = addMesh(head, new THREE.CylinderGeometry(sp.w * 0.545, sp.w * 0.545, 0.022, 16),
-                    tint(eq.cat, { emissive: parseInt((CAT_COLORS[eq.cat]).slice(1), 16), emissiveIntensity: 0.25 }),
-                    0, sp.h * 0.55 + 0.03, -sp.d * 0.3);
-                band.rotation.x = Math.PI / 2;
+                // 요크(U 브래킷)
+                const yw = sp.w * 0.78;
+                [-1, 1].forEach(s => {
+                    addMesh(head, new THREE.BoxGeometry(0.016, sp.h * 0.95, 0.03), M.aluDk(),
+                        s * yw, sp.h * 0.5 + 0.03, 0);
+                });
+                addMesh(head, new THREE.BoxGeometry(yw * 2, 0.018, 0.035), M.aluDk(), 0, 0.035, 0);
+                if (isForza500(eq)) {
+                    const cob = cobHeadMesh(sp);
+                    cob.position.y = sp.h * 0.55 + 0.03;
+                    head.add(cob);
+                } else {
+                    // 헤드 본체
+                    const body = addMesh(head, new THREE.CylinderGeometry(sp.w * 0.52, sp.w * 0.52, sp.d * 0.72, 16),
+                        M.black(), 0, sp.h * 0.55 + 0.03, 0);
+                    body.rotation.x = Math.PI / 2;
+                    // 방열 핀
+                    for (let i = 0; i < 5; i++)
+                        addMesh(head, new THREE.BoxGeometry(sp.w * 1.02, 0.006, 0.03), M.aluDk(),
+                            0, sp.h * 0.55 + 0.03, -sp.d * 0.36 + i * 0.014);
+                    // 리플렉터 + 발광면
+                    const ref = addMesh(head, new THREE.CylinderGeometry(sp.w * 1.15, sp.w * 0.55, sp.d * 0.62, 20, 1, true),
+                        mat(0xd8dde3, { metalness: 0.85, roughness: 0.22, side: THREE.DoubleSide }),
+                        0, sp.h * 0.55 + 0.03, sp.d * 0.62);
+                    ref.rotation.x = -Math.PI / 2;
+                    const face = addMesh(head, new THREE.CircleGeometry(sp.w * 1.12, 22), M.diff(),
+                        0, sp.h * 0.55 + 0.03, sp.d * 0.92, false);
+                    face.rotation.y = 0;
+                    // 카테고리 컬러 밴드
+                    const band = addMesh(head, new THREE.CylinderGeometry(sp.w * 0.545, sp.w * 0.545, 0.022, 16),
+                        tint(eq.cat, { emissive: parseInt((CAT_COLORS[eq.cat]).slice(1), 16), emissiveIntensity: 0.25 }),
+                        0, sp.h * 0.55 + 0.03, -sp.d * 0.3);
+                    band.rotation.x = Math.PI / 2;
+                }
             }
             // 조립체 모디파이어(소프트박스/디퓨저) → 조명 앞에 장착
             rigParts(it).filter(p => p.slot === 'mod').forEach(p => {
                 const ms = specOf(p.eqId);
                 const me = EQUIPMENT.find(e => e.id === p.eqId);
-                const yy = sp.h * 0.55 + 0.03;
+                const yy = modY;
                 if (isTriflector(me)) {          // 반사판은 조명 앞에 세워 둔다
                     const tf = triflectorMesh(ms);
-                    tf.position.set(0, yy - 0.25, sp.d * 0.5 + 0.35);
+                    tf.position.set(0, yy - 0.25, modZ + 0.35);
                     head.add(tf);
+                    return;
+                }
+                if (isProjection(me)) {          // 프로젝션 어태치먼트 (본체 + 렌즈)
+                    const b = pjFmmBody(ms); b.position.set(0, yy, modZ); head.add(b);
+                    const l = pjFmmLens(ms); l.position.set(0, yy, modZ + ms.d); head.add(l);
+                    return;
+                }
+                if (isFresnelMod(me)) {          // 프레넬 렌즈
+                    const fr = fl11Fresnel(ms); fr.position.set(0, yy, modZ); head.add(fr);
                     return;
                 }
                 if (isLanternSoftbox(me)) {      // 랜턴(구형) 소프트박스
                     const m = lanternMesh(ms);
-                    m.position.set(0, yy, sp.d * 0.5 + (ms.w || 0.8) * 0.5);
-                    head.add(m);
-                    return;
-                }
-                if (isProjection(me)) {          // 프로젝션 스누트
-                    const m = projectionMesh(ms);
-                    m.position.set(0, yy, sp.d * 0.5 + (ms.d || 0.5) * 0.5);
+                    m.position.set(0, yy, modZ + (ms.w || 0.8) * 0.5);
                     head.add(m);
                     return;
                 }
@@ -6729,13 +6763,13 @@ function buildItemMesh(eq, it) {
                     const sb = parabolicSoftbox(Math.max(0.25, (ms.w || 0.9) / 2),
                         Math.max(0.22, ms.d || 0.5), 16);
                     sb.rotation.x = Math.PI / 2;           // 확산면이 조명 앞(+Z)을 향하게
-                    sb.position.set(0, yy, sp.d * 0.5);
+                    sb.position.set(0, yy, modZ);
                     head.add(sb);
                 } else {   // 얇은 디퓨저 패널
                     addMesh(head, new THREE.BoxGeometry(ms.w, ms.h, Math.max(0.02, ms.d)),
-                        M.diff(), 0, yy, sp.d * 0.5 + 0.42);
+                        M.diff(), 0, yy, modZ + 0.42);
                     addMesh(head, new THREE.CylinderGeometry(0.008, 0.008, 0.42, 6), M.aluDk(),
-                        0, yy, sp.d * 0.5 + 0.21).rotation.x = Math.PI / 2;
+                        0, yy, modZ + 0.21).rotation.x = Math.PI / 2;
                 }
             });
         } else if (eq.cat === 'MOD') {
@@ -6747,10 +6781,11 @@ function buildItemMesh(eq, it) {
                 const m = lanternMesh(sp);
                 m.position.y = sp.h * 0.5;
                 head.add(m);
-            } else if (isProjection(eq)) {
-                const m = projectionMesh(sp);
-                m.position.y = sp.h * 0.5;
-                head.add(m);
+            } else if (isProjection(eq)) {   // 프로젝션 어태치먼트 (본체 + 렌즈, 마운트 뒤로)
+                const b = pjFmmBody(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
+                const l = pjFmmLens(sp); l.position.set(0, sp.h * 0.5, sp.d); head.add(l);
+            } else if (isFresnelMod(eq)) {   // 프레넬 렌즈
+                const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
             } else {
                 const sb = parabolicSoftbox(Math.max(0.25, sp.w * 0.6), Math.max(0.22, sp.d), 16);
                 sb.rotation.x = Math.PI / 2;
@@ -7840,6 +7875,7 @@ applyEqEdits();
 
 HTML = HTML.replace('__DATA__', DATA_JSON)
 HTML = HTML.replace('/*__THREEJS__*/', THREE_SRC)
+HTML = HTML.replace('/*__MODELS3D__*/', MODELS_SRC)
 HTML = HTML.replace('__WATERMARK__', WM_DATA)
 
 OUT = os.path.join(ROOT, 'dist', 'index.html')

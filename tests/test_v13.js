@@ -81,7 +81,7 @@ const lit=A.buildItemMesh(A.EQ().find(e=>e.id==='LIT-001'),
   {eqId:'LIT-001',x:0,y:0,h3:1.9,rot:0,parts:[{eqId:'STD-A-001',slot:'support'},{eqId:'MOD-002',slot:'mod'}]});
 const lb=bbox(lit);
 t('소프트박스가 조명 앞쪽으로 뻗음', lb.max.z>0.35, lb.max.z.toFixed(2));
-t('뒤로는 거의 안 나감', lb.min.z>-0.5, lb.min.z.toFixed(2));
+t('뒤로는 스탠드 다리까지만(소프트박스는 앞)', lb.min.z>-0.7, lb.min.z.toFixed(2));
 
 console.log('=== 5. C 스탠드 ===');
 const cs=new THREE.Group(); A.cStandBase(cs,1.05); A.chromeRiser(cs,0.26,2.2,2);

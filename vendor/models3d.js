@@ -1,0 +1,828 @@
+// ============================================================================
+//  models3d.js — 사용자 제작 고품질 3D 모델 (Downloads/3d 통합)
+//  generate_html.py 가 /*__MODELS3D__*/ 자리에 인라인합니다.
+//  이 코드는 M / mat / SPECS / THREE 가 정의된 뒤 실행됩니다.
+//  폴더의 자산번호는 실제 DB와 달라서, SPECS 는 실제 자산 id 로 새로 등록합니다.
+// ============================================================================
+
+// ── 부족한 헬퍼 보강 ─────────────────────────────────────────────────────────
+M.silver = () => mat(0xd2d7de, { metalness: 0.9, roughness: 0.22 });   // 밝은 리플렉터 내피
+// 발광면 표시(현재 렌더는 emissive 재질로 이미 빛나므로 태그만 남긴다)
+function markEmitter(mesh, opts) { if (mesh) mesh.userData.emitter = opts || {}; return mesh; }
+// 봉 헬퍼 별칭 — 삼각대는 rod(), 스탠드는 _rod() (동일 시그니처)
+function rod(a, b, r, seg) { return _rod(a, b, r, seg); }
+// 여러 지오메트리 조각을 하나로 합친다. 조각 = {geo, pos?[x,y,z], rot?[x,y,z], quat?}
+function geoBatch(parts) {
+    const posArr = [], nrmArr = [];
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(),
+          e = new THREE.Euler(), v = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
+    for (const part of parts) {
+        let g = part.geo.index ? part.geo.toNonIndexed() : part.geo.clone();
+        if (part.quat) q.copy(part.quat);
+        else if (part.rot) q.setFromEuler(e.set(part.rot[0] || 0, part.rot[1] || 0, part.rot[2] || 0));
+        else q.identity();
+        p.set(part.pos ? (part.pos[0] || 0) : 0, part.pos ? (part.pos[1] || 0) : 0, part.pos ? (part.pos[2] || 0) : 0);
+        m4.compose(p, q, v);
+        g.applyMatrix4(m4);
+        const pa = g.attributes.position.array; for (let i = 0; i < pa.length; i++) posArr.push(pa[i]);
+        if (g.attributes.normal) { const na = g.attributes.normal.array; for (let i = 0; i < na.length; i++) nrmArr.push(na[i]); }
+        if (g !== part.geo) g.dispose && g.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(posArr, 3));
+    if (nrmArr.length === posArr.length) out.setAttribute('normal', new THREE.Float32BufferAttribute(nrmArr, 3));
+    else out.computeVertexNormals();
+    return out;
+}
+
+// ── 빌더 함수 (사용자 제작, 원본 그대로) ──
+// ── fs60bHead  (출처: LIT-002_FS-60B/LIT-002_threejs.js) ──
+function fs60bHead(sp) {
+    const g = new THREE.Group();
+    const H = sp.h, BW = sp.bodyW, zF = sp.zFront, zB = sp.zBack;
+    const shell = M.black(), alu = M.aluDk(), knobM = M.knob(), rub = M.rubber();
+
+    const add = (geo, mat, x = 0, y = 0, z = 0) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        g.add(m);
+        return m;
+    };
+
+    const plateT = 0.012;
+    const zBody = zB + 0.030;                 // 리브 본체 후면 (상판이 뒤로 더 나옴)
+    const bodyL = (zF - plateT) - zBody;
+
+    // 상판 — 윗면 전체를 덮고 뒤로 30mm 돌출
+    const hoodL = (zF - plateT) - zB;
+    add(new THREE.BoxGeometry(BW + 0.005, 0.008, hoodL), shell, 0, H / 2 + 0.001, zB + hoodL / 2);
+
+    // 리브 본체 + 방열 홈 3줄
+    add(new THREE.BoxGeometry(BW, H, bodyL), shell, 0, 0, zBody + bodyL / 2);
+    for (let i = -1; i <= 1; i++) {
+        add(new THREE.BoxGeometry(BW + 0.0016, 0.005, bodyL * 0.88), alu,
+            0, i * 0.019, zBody + bodyL / 2);
+    }
+
+    // 측면 옐로 액센트
+    add(new THREE.BoxGeometry(BW + 0.0018, 0.026, 0.007),
+        mat(0xe8b400, { roughness: 0.5, metalness: 0.1 }), 0, 0, zF - plateT - 0.012);
+
+    // 전면 마운트 판 — 모서리 깎인 사각판 + 원형 개구
+    const ringR = 0.039;
+    const pw = (BW + 0.006) / 2, ph = (H + 0.006) / 2, ch = 0.010;
+    const shape = new THREE.Shape();
+    shape.moveTo(-pw + ch, -ph);
+    shape.lineTo(pw - ch, -ph); shape.lineTo(pw, -ph + ch);
+    shape.lineTo(pw, ph - ch); shape.lineTo(pw - ch, ph);
+    shape.lineTo(-pw + ch, ph); shape.lineTo(-pw, ph - ch);
+    shape.lineTo(-pw, -ph + ch); shape.closePath();
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, ringR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    add(new THREE.ExtrudeGeometry(shape, { depth: plateT, bevelEnabled: false, curveSegments: 16 }),
+        shell, 0, 0, zF - plateT);
+
+    // FM 마운트 캐비티 + COB
+    add(new THREE.CylinderGeometry(ringR, ringR, 0.0115, 16, 1, true), alu, 0, 0, zF - 0.0058)
+        .rotation.x = Math.PI / 2;
+    add(new THREE.CircleGeometry(ringR, 16), shell, 0, 0, zF - plateT + 0.0005);
+    add(new THREE.CircleGeometry(0.020, 16), M.diff(), 0, 0, zF - plateT + 0.0010);
+    const cob = add(new THREE.CircleGeometry(0.0145, 16),
+        mat(0xf2dd7a, { roughness: 0.85, metalness: 0, emissive: 0xffe9a8, emissiveIntensity: 1.0 }),
+        0, 0, zF - plateT + 0.0015);
+    markEmitter(cob, { coneDeg: sp.beam, softness: 0, shape: 'disc', size: 0.029 });
+
+    // 후면 컨트롤 패널
+    const zP = zBody - 0.004;
+    add(new THREE.BoxGeometry(BW - 0.008, H - 0.008, 0.008), alu, 0, 0, zP + 0.004);
+    add(new THREE.BoxGeometry(0.032, 0.019, 0.003), rub, 0, 0.016, zP);                  // LCD
+    add(new THREE.CylinderGeometry(0.0075, 0.0075, 0.005, 12),
+        mat(0x3fa9dc, { roughness: 0.5, metalness: 0.1 }), -0.022, -0.009, zP - 0.001)
+        .rotation.x = Math.PI / 2;                                                       // 파란 다이얼
+    add(new THREE.BoxGeometry(0.011, 0.005, 0.003), knobM, -0.002, -0.011, zP);          // MODE
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 12), knobM, 0.017, -0.009, zP - 0.001)
+        .rotation.x = Math.PI / 2;
+    add(new THREE.BoxGeometry(0.021, 0.011, 0.004), rub, -0.013, -0.031, zP);            // AC 인렛
+    add(new THREE.BoxGeometry(0.013, 0.009, 0.004), knobM, 0.019, -0.031, zP);           // 전원 스위치
+
+    // 요크 (U자 스트랩) — 전폭 134mm는 틸트 노브 끝 기준
+    const ax = 0.0545;
+    const path = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(ax, 0.014, 0), new THREE.Vector3(ax, -0.055, 0),
+        new THREE.Vector3(ax * 0.88, -0.095, 0), new THREE.Vector3(ax * 0.42, -0.112, 0),
+        new THREE.Vector3(0, -0.115, 0),
+        new THREE.Vector3(-ax * 0.42, -0.112, 0), new THREE.Vector3(-ax * 0.88, -0.095, 0),
+        new THREE.Vector3(-ax, -0.055, 0), new THREE.Vector3(-ax, 0.014, 0),
+    ], false, 'catmullrom', 0.2);
+    add(new THREE.TubeGeometry(path, 22, 0.0075, 5, false), alu);
+    for (const s of [-1, 1]) {
+        add(new THREE.CylinderGeometry(0.0105, 0.0105, 0.009, 12), knobM, s * 0.0625, 0, 0)
+            .rotation.z = Math.PI / 2;
+    }
+
+    // 스탠드 스피곳 (5/8")
+    const sTop = -0.114, sBot = -sp.yokeDrop;
+    add(new THREE.CylinderGeometry(0.0145, 0.0145, sTop - sBot, 12), alu, 0, (sTop + sBot) / 2, 0);
+    add(new THREE.CylinderGeometry(0.0125, 0.0125, 0.020, 12), knobM, -0.025, -0.140, 0)
+        .rotation.z = Math.PI / 2;
+
+    return g;
+}
+
+// ── fs60bReflector  (출처: LIT-002_FS-60B/LIT-002_threejs.js) ──
+function fs60bReflector(sp) {
+    const g = new THREE.Group();
+    const rN = sp.neckD / 2, rA = sp.apertureD / 2, L = sp.depth;
+
+    const prof = [
+        new THREE.Vector2(rN * 0.83, 0),
+        new THREE.Vector2(rN, 0.006),
+        new THREE.Vector2(rN, 0.024),
+        new THREE.Vector2(rN + (rA - rN) * 0.30, L * 0.32),
+        new THREE.Vector2(rN + (rA - rN) * 0.66, L * 0.68),
+        new THREE.Vector2(rA * 0.975, L * 0.94),
+        new THREE.Vector2(rA, L),
+    ];
+
+    const outer = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), M.black());
+    outer.rotation.x = Math.PI / 2;              // Lathe 축 Y → +Z (부호 주의)
+    g.add(outer);
+
+    const innerMat = M.silver().clone();
+    innerMat.side = THREE.BackSide;
+    const inner = new THREE.Mesh(
+        new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p.x - 0.0018, p.y)), 16), innerMat);
+    inner.rotation.x = Math.PI / 2;
+    g.add(inner);
+
+    for (let i = 0; i < 3; i++) {                // 외피 홈 3줄
+        const t = 0.30 + i * 0.20;
+        const r = rN + (rA - rN) * (t * 0.9);
+        const ring = new THREE.Mesh(
+            new THREE.CylinderGeometry(r + 0.0012, r + 0.0012, 0.004, 16, 1, true), M.aluDk());
+        ring.rotation.x = Math.PI / 2;
+        ring.position.z = L * t;
+        g.add(ring);
+    }
+
+    const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(rA + 0.0015, rA + 0.0015, 0.006, 16, 1, true), M.aluDk());
+    rim.rotation.x = Math.PI / 2;
+    rim.position.z = L - 0.003;
+    g.add(rim);
+
+    const face = new THREE.Mesh(new THREE.CircleGeometry(rA - 0.002, 16), M.diff());
+    face.position.z = L - 0.001;
+    markEmitter(face, { coneDeg: sp.beam, softness: 0, shape: 'disc', size: sp.apertureD });
+    g.add(face);
+
+    return g;
+}
+
+// ── ad300ProIIHead  (출처: LIT-003_AD300ProII/LIT-003_threejs.js) ──
+function ad300ProIIHead(sp) {
+    const g = new THREE.Group();
+    const AY = sp.axisY, zF = sp.zFront, zB = sp.zBack;
+    const R = sp.h / 2;
+    const shell = M.black(), alu = M.aluDk(), knobM = M.knob(), rub = M.rubber();
+
+    const add = (geo, mat, x = 0, y = 0, z = 0) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        g.add(m);
+        return m;
+    };
+
+    // 후면 하우징 (컨트롤 패널 쪽이 살짝 넓습니다)
+    const rearL = 0.098;
+    add(new THREE.BoxGeometry(sp.w, sp.h, rearL), shell, 0, AY, zB + rearL / 2);
+
+    // 전면 배럴 — 앞쪽 16mm 는 마운트 캐비티로 비워둡니다
+    const zCav = zF - 0.016;
+    const barL = zCav - (zB + rearL);
+    add(new THREE.CylinderGeometry(R, R, barL, 16), shell, 0, AY, zB + rearL + barL / 2)
+        .rotation.x = Math.PI / 2;
+
+    // 그레이 액센트 밴드
+    add(new THREE.CylinderGeometry(R + 0.0015, R + 0.0015, 0.013, 16), alu, 0, AY, zF - 0.058)
+        .rotation.x = Math.PI / 2;
+
+    // 측면 방열 슬롯 (홈 3줄)
+    for (let i = -1; i <= 1; i++) {
+        add(new THREE.BoxGeometry(sp.w + 0.0016, 0.005, 0.030), rub, 0, AY + i * 0.011, zB + 0.030);
+    }
+
+    // Godox 마운트 링 + 발광부
+    add(new THREE.CylinderGeometry(R, R, 0.016, 16, 1, true), alu, 0, AY, zF - 0.008)
+        .rotation.x = Math.PI / 2;
+    add(new THREE.CircleGeometry(R - 0.003, 16), shell, 0, AY, zCav + 0.0005);
+
+    const tube = add(new THREE.CircleGeometry(0.024, 16), M.diff(), 0, AY, zCav + 0.001);
+    markEmitter(tube, { coneDeg: sp.beam, softness: 0, shape: 'disc', size: 0.048 });
+    add(new THREE.CircleGeometry(R - 0.006, 16), M.glass(), 0, AY, zF - 0.004);   // 보호 유리
+    add(new THREE.CircleGeometry(0.009, 12),
+        mat(0xf5e6c0, { roughness: 0.8, metalness: 0, emissive: 0xffeec4, emissiveIntensity: 0.8 }),
+        0, AY, zCav + 0.0015);                                                    // 모델링 LED
+
+    // 후면 컨트롤 패널
+    const zP = zB + 0.003;
+    add(new THREE.BoxGeometry(sp.w - 0.008, sp.h - 0.008, 0.006), alu, 0, AY, zP);
+    add(new THREE.BoxGeometry(0.040, 0.026, 0.003), rub, -0.018, AY + 0.008, zP - 0.003);
+    add(new THREE.BoxGeometry(0.028, 0.012, 0.003), rub, -0.016, AY - 0.024, zP - 0.003);
+    for (const [bx, by] of [[0.028, 0.014], [0.028, -0.002], [0.028, -0.018]]) {
+        add(new THREE.CylinderGeometry(0.004, 0.004, 0.004, 8), knobM, bx, AY + by, zP - 0.003)
+            .rotation.x = Math.PI / 2;
+    }
+    add(new THREE.BoxGeometry(0.006, 0.004, 0.026),
+        mat(0xc8352e, { roughness: 0.5, metalness: 0.1 }), 0.030, AY + sp.h / 2, zB + 0.026);
+
+    // 틸트 브래킷 (플레이트 + 노브 + 스피곳)
+    add(new THREE.BoxGeometry(0.030, AY + 0.010, 0.040), alu, 0, (AY - 0.010) / 2, 0);
+    for (const s of [-1, 1]) {
+        add(new THREE.CylinderGeometry(0.012, 0.012, 0.010, 12), knobM, s * 0.019, 0, 0)
+            .rotation.z = Math.PI / 2;
+    }
+    add(new THREE.CylinderGeometry(0.0145, 0.0145, sp.yokeDrop - 0.010, 12), alu,
+        0, -(0.010 + sp.yokeDrop) / 2, 0);
+
+    return g;
+}
+
+// ── pjFmmBody  (출처: MOD-001_PJ-FMM-36/MOD-001_threejs.js) ──
+function pjFmmBody(sp) {
+    const g = new THREE.Group();
+    const D = sp.d, alu = M.aluDk(), shell = M.black(), knobM = M.knob();
+
+    const add = (geo, mat, x = 0, y = 0, z = 0) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        g.add(m);
+        return m;
+    };
+
+    // 배럴 = 회전체 1덩어리 (마운트 칼라 → 콘덴서 → 고보 구간 → 포커스 → 렌즈 클램프 링)
+    const prof = [
+        [0.036, 0.000], [0.044, 0.000], [0.044, 0.015],
+        [0.050, 0.018], [0.050, 0.072],
+        [0.047, 0.076], [0.047, 0.126],
+        [0.048, 0.130], [0.048, 0.168],
+        [0.066, 0.174], [0.066, D],
+        [0.052, D],
+    ].map(([r, z]) => new THREE.Vector2(r, z));
+    const barrel = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), shell);
+    barrel.rotation.x = Math.PI / 2;          // Lathe 축 Y → +Z (부호 주의)
+    g.add(barrel);
+
+    add(new THREE.CircleGeometry(0.036, 16), alu, 0, 0, 0.004);        // 콘덴서 막음면
+
+    // 고보 하우징 + 슬롯 보스 + 손나사
+    add(new THREE.BoxGeometry(0.098, 0.098, 0.052), shell, 0, 0, 0.101);
+    add(new THREE.BoxGeometry(0.052, 0.020, 0.030), alu, 0, 0.058, 0.101);
+    add(new THREE.CylinderGeometry(0.010, 0.010, 0.013, 12), knobM, 0, 0.0745, 0.101);
+
+    // 젤홀더 탭 — 전폭 160mm를 만드는 부분
+    for (const s of [-1, 1]) {
+        add(new THREE.BoxGeometry(0.032, 0.030, 0.010), alu, s * 0.064, 0, D - 0.008);
+    }
+
+    // 지지 다리 + 스탠드 스피곳
+    const legTop = -0.046, legBot = -0.128;
+    add(new THREE.BoxGeometry(0.030, legTop - legBot, 0.036), alu,
+        0, (legTop + legBot) / 2, 0.096);
+    add(new THREE.CylinderGeometry(0.0145, 0.0145, legBot - sp.yBot, 12), alu,
+        0, (legBot + sp.yBot) / 2, 0.096);
+    add(new THREE.CylinderGeometry(0.0125, 0.0125, 0.020, 12), knobM, -0.025, -0.140, 0.096)
+        .rotation.z = Math.PI / 2;
+
+    return g;
+}
+
+// ── pjFmmLens  (출처: MOD-001_PJ-FMM-36/MOD-001_threejs.js) ──
+function pjFmmLens(sp) {
+    const g = new THREE.Group();
+    const R = sp.barrelD / 2, L = sp.len;
+    const shell = M.black(), alu = M.aluDk(), knobM = M.knob();
+
+    const prof = [
+        [0.050, 0.000], [0.064, 0.000], [0.064, 0.022],
+        [R * 0.93, 0.028], [R * 0.93, 0.112],
+        [R, 0.118], [R, L],
+        [R - 0.006, L],
+    ].map(([r, z]) => new THREE.Vector2(r, z));
+    const barrel = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), shell);
+    barrel.rotation.x = Math.PI / 2;
+    g.add(barrel);
+
+    const grip = new THREE.Mesh(
+        new THREE.CylinderGeometry(R * 0.96, R * 0.96, 0.032, 16, 1, true), alu);
+    grip.rotation.x = Math.PI / 2;
+    grip.position.z = 0.062;
+    g.add(grip);
+
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.018, 12), knobM);
+    knob.rotation.z = Math.PI / 2;
+    knob.position.set(-0.070, 0, 0.011);
+    g.add(knob);
+
+    const glass = new THREE.Mesh(
+        new THREE.SphereGeometry(R - 0.006, 16, 6, 0, Math.PI * 2, 0, Math.PI * 0.30), M.glass());
+    glass.rotation.x = -Math.PI / 2;          // 볼록면이 +Z
+    glass.position.z = L - 0.034;
+    g.add(glass);
+
+    const face = new THREE.Mesh(new THREE.CircleGeometry(R - 0.007, 16), M.diff());
+    face.position.z = L - 0.002;
+    markEmitter(face, { coneDeg: sp.beam, softness: 0, shape: 'disc', size: sp.barrelD });
+    g.add(face);
+
+    return g;
+}
+
+// ── fl11Fresnel  (출처: MOD-002_FL-11/MOD-002_threejs.js) ──
+function fl11Fresnel(sp) {
+    const g = new THREE.Group();
+    const D = sp.d, RO = sp.outerD / 2, RL = sp.lensD / 2;
+    const shell = M.black(), alu = M.aluDk(), knobM = M.knob();
+
+    const add = (geo, mat, x = 0, y = 0, z = 0) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        g.add(m);
+        return m;
+    };
+
+    // 배럴 = 회전체 1덩어리 (마운트 칼라 → 포커스 배럴 → 베젤 링 → 앞면 링)
+    const prof = [
+        [0.040, 0.000], [0.046, 0.000], [0.046, 0.014],
+        [0.050, 0.018], [0.050, 0.026],
+        [0.048, 0.030], [0.048, 0.094],
+        [0.046, 0.098], [0.046, 0.106],
+        [RO, 0.112], [RO, D],
+        [RL, D],
+    ].map(([r, z]) => new THREE.Vector2(r, z));
+    const barrel = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), shell);
+    barrel.rotation.x = Math.PI / 2;      // Lathe 축 Y → +Z (부호 주의)
+    g.add(barrel);
+
+    // 널링 포커스 그립 (스팟↔플러드)
+    const grip = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0485, 0.0485, 0.058, 16, 1, true), alu);
+    grip.rotation.x = Math.PI / 2;
+    grip.position.z = 0.062;
+    g.add(grip);
+
+    // 프레넬 렌즈 — 동심 계단을 회전체로 실제로 깎습니다 (텍스처 없이 무늬 표현)
+    const N = 6, stepZ = 0.0022, backZ = -0.006;
+    const lp = [new THREE.Vector2(0, 0)];
+    for (let i = 1; i <= N; i++) {
+        const r = RL * i / N;
+        lp.push(new THREE.Vector2(r, -stepZ));   // 경사면
+        lp.push(new THREE.Vector2(r, 0));        // 계단 턱
+    }
+    lp.push(new THREE.Vector2(RL, backZ));
+    lp.push(new THREE.Vector2(0, backZ));
+    const lens = new THREE.Mesh(new THREE.LatheGeometry(lp, 16), M.glass());
+    lens.rotation.x = Math.PI / 2;
+    lens.position.z = D - 0.004;
+    g.add(lens);
+
+    // 발광면 — 렌즈 바로 뒤 (앞에 두면 프레넬 무늬가 가려집니다). 법선 +Z
+    const face = new THREE.Mesh(new THREE.CircleGeometry(RL - 0.001, 16), M.diff());
+    face.position.z = D - 0.012;
+    markEmitter(face, { coneDeg: sp.beam, softness: 0.15, shape: 'disc', size: sp.lensD });
+    g.add(face);
+
+    // 반도어 장착 브래킷 4개 (베젤 가장자리에만)
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        add(new THREE.BoxGeometry(dx ? 0.012 : 0.018, dy ? 0.012 : 0.018, 0.013), alu,
+            dx * (RO + 0.003), dy * (RO + 0.003), D - 0.007);
+    }
+
+    // 마운트 잠금 레버
+    add(new THREE.CylinderGeometry(0.009, 0.009, 0.020, 12), knobM, -0.052, 0, 0.012)
+        .rotation.z = Math.PI / 2;
+
+    return g;
+}
+
+// ── fl11Barndoors  (출처: MOD-002_FL-11/MOD-002_threejs.js) ──
+function fl11Barndoors(sp) {
+    const g = new THREE.Group();
+    const alu = M.aluDk(), leafM = M.rubber();   // 무광 검정 금속판
+    const R = sp.ringD / 2;
+    const ang = THREE.MathUtils.degToRad(20 + 45 * sp.open);
+
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.014, 16, 1, true), alu);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.z = 0.006;
+    g.add(ring);
+
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const b = new THREE.Mesh(
+            new THREE.BoxGeometry(dx ? 0.012 : 0.020, dy ? 0.012 : 0.020, 0.014), alu);
+        b.position.set(dx * (R + 0.002), dy * (R + 0.002), 0.007);
+        g.add(b);
+    }
+
+    // 날개 4장 — 힌지 모서리를 원점으로 옮긴 뒤 벌립니다
+    const leaf = (w, h, L, rot, axis, px, py) => {
+        const geo = new THREE.BoxGeometry(w, h, L);
+        geo.translate(0, 0, L / 2);
+        const m = new THREE.Mesh(geo, leafM);
+        m.rotation[axis] = rot;
+        m.position.set(px, py, 0.010);
+        g.add(m);
+    };
+    leaf(sp.bigW, 0.0018, sp.bigL, -ang, 'x', 0, R);
+    leaf(sp.bigW, 0.0018, sp.bigL, ang, 'x', 0, -R);
+    leaf(0.0018, sp.smallW, sp.smallL, ang, 'y', R, 0);
+    leaf(0.0018, sp.smallW, sp.smallL, -ang, 'y', -R, 0);
+
+    return g;
+}
+
+// ── _rod  (출처: STD-001_PRO-403A/STD-001_threejs.js) ──
+function _rod(a, b, r, seg = 8) {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+    const dir = new THREE.Vector3().subVectors(B, A);
+    const geo = new THREE.CylinderGeometry(r, r, dir.length(), seg);
+    const quat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    return { geo, pos: A.clone().addScaledVector(dir, 0.5).toArray(), quat };
+}
+
+// ── valensPro403a  (출처: STD-001_PRO-403A/STD-001_threejs.js) ──
+function valensPro403a(sp) {
+    const g = new THREE.Group();
+    const rA = sp.tubeA / 2, rB = sp.tubeB / 2, rC = sp.tubeC / 2;
+    const legR = sp.legTube / 2, footR = sp.spreadD / 2;
+
+    // 단 인출량 — 조인트 2개가 균등하게 나옵니다
+    const secL = sp.hMin - sp.yHub - sp.spigotL;     // 0.78
+    const ext = Math.max(0, (sp.h - sp.hMin) / 2);
+    const yC = sp.yHub + secL;
+    const yB = yC + ext;
+    const yA = yB + ext;
+
+    const cyl = (r, y0, y1, seg = 10) => ({
+        geo: new THREE.CylinderGeometry(r, r, y1 - y0, seg),
+        pos: [0, (y0 + y1) / 2, 0],
+    });
+
+    // 1. 컬럼 3단 (C + B + A)
+    //    C 튜브는 다리 결합부 바로 아래에서 끝납니다 (바닥까지 내려오지 않음)
+    const yBrace = sp.yHub - 0.042;
+    const yColBase = yBrace - 0.022;
+    g.add(new THREE.Mesh(geoBatch([
+        cyl(rC, yColBase, yC),
+        cyl(rB, yC - 0.020, yB),
+        cyl(rA, yB - 0.020, yA),
+    ]), M.aluDk()));
+
+    // 2. 상단 스피곳 (16mm, 1/4"·3/8" 나사)
+    g.add(new THREE.Mesh(geoBatch([
+        cyl(0.014, yA, yA + 0.018, 10),
+        cyl(sp.spigotD / 2, yA + 0.018, yA + sp.spigotL - 0.006, 10),
+        cyl(0.0048, yA + sp.spigotL - 0.006, yA + sp.spigotL, 8),
+    ]), M.chrome()));
+
+    // 3. 클램프 칼라 2개 (+ 조임 노브)
+    const clampParts = [];
+    for (const [y, r] of [[yC, rC], [yB, rB]]) {
+        clampParts.push({ geo: new THREE.CylinderGeometry(r + 0.008, r + 0.008, 0.038, 10),
+                          pos: [0, y - 0.014, 0] });
+        clampParts.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, 0.030, 8),
+                          pos: [r + 0.020, y - 0.014, 0], rot: [0, 0, Math.PI / 2] });
+        clampParts.push({ geo: new THREE.BoxGeometry(0.006, 0.020, 0.026),
+                          pos: [r + 0.036, y - 0.014, 0] });
+    }
+    g.add(new THREE.Mesh(geoBatch(clampParts), M.knob()));
+
+    // 4. 다리 3개 + 브레이스 3개
+    const legParts = [];
+    for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const cx = Math.cos(a), cz = Math.sin(a);
+        legParts.push(_rod([cx * (rC + 0.012), sp.yHub, cz * (rC + 0.012)],
+                           [cx * footR, 0.018, cz * footR], legR));
+        legParts.push(_rod([cx * (rC + 0.010), yBrace, cz * (rC + 0.010)],
+                           [cx * footR * 0.52, 0.018 + (sp.yHub - 0.018) * 0.48, cz * footR * 0.52],
+                           0.0055, 6));
+    }
+    g.add(new THREE.Mesh(geoBatch(legParts), M.aluDk()));
+
+    // 5. 고무 발 3개
+    const footParts = [];
+    for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        footParts.push({ geo: new THREE.CylinderGeometry(0.014, 0.017, 0.020, 8),
+                         pos: [Math.cos(a) * footR, 0.010, Math.sin(a) * footR] });
+    }
+    g.add(new THREE.Mesh(geoBatch(footParts), M.rubber()));
+
+    // 6. 다리 허브 + 브레이스 칼라
+    g.add(new THREE.Mesh(geoBatch([
+        { geo: new THREE.CylinderGeometry(rC + 0.011, rC + 0.011, 0.052, 10), pos: [0, sp.yHub - 0.018, 0] },
+        { geo: new THREE.CylinderGeometry(rC + 0.008, rC + 0.008, 0.030, 10), pos: [0, yBrace, 0] },
+    ]), M.alu()));
+
+    return g;
+}
+
+// ── valensPro40t  (출처: STD-002_PRO-40T/STD-002_threejs.js) ──
+function valensPro40t(sp) {
+    const g = new THREE.Group();
+    const rA = sp.tubeA / 2, rB = sp.tubeB / 2, rC = sp.tubeC / 2;
+    const legR = sp.legTube / 2, footR = sp.spreadD / 2;
+    const steel = M.chrome(), alu = M.alu();
+
+    const secL = sp.hMin - sp.yBase - sp.spigotL;      // 1.08
+    const ext = Math.max(0, (sp.h - sp.hMin) / 2);
+    const yC = sp.yBase + secL;
+    const yB = yC + ext;
+    const yA = yB + ext;
+
+    const cyl = (r, y0, y1, seg = 8, open = false) => ({
+        geo: new THREE.CylinderGeometry(r, r, y1 - y0, seg, 1, open),
+        pos: [0, (y0 + y1) / 2, 0],
+    });
+
+    // 1. 컬럼 3단 + 상단 스피곳
+    g.add(new THREE.Mesh(geoBatch([
+        cyl(rC, sp.yBase - 0.060, yC, 8, true),
+        cyl(rB, yC - 0.020, yB, 8, true),
+        cyl(rA, yB - 0.020, yA, 8, true),
+        cyl(0.013, yA, yA + 0.016),
+        cyl(sp.spigotD / 2, yA + 0.016, yA + sp.spigotL - 0.005),
+        cyl(0.0048, yA + sp.spigotL - 0.005, yA + sp.spigotL, 6),
+    ]), steel));
+
+    // 2. 클램프 칼라 2개 + T노브
+    const clampParts = [];
+    for (const [y, r] of [[yC, rC], [yB, rB]]) {
+        clampParts.push(cyl(r + 0.009, y - 0.036, y + 0.002, 8, true));
+        clampParts.push({ geo: new THREE.CylinderGeometry(0.006, 0.006, 0.026, 6),
+                          pos: [r + 0.020, y - 0.017, 0], rot: [0, 0, Math.PI / 2] });
+        clampParts.push({ geo: new THREE.BoxGeometry(0.007, 0.030, 0.011),
+                          pos: [r + 0.035, y - 0.017, 0] });
+    }
+    g.add(new THREE.Mesh(geoBatch(clampParts), alu));
+
+    // 3. 터틀 베이스 보스 — 다리 3개가 서로 다른 높이에 물립니다
+    const bossParts = [];
+    for (const y of sp.legY) bossParts.push(cyl(sp.legHubR, y - 0.024, y + 0.024, 8, true));
+    bossParts.push(cyl(0.024, 0.264, sp.yBase, 8));                 // 컬럼 소켓
+    bossParts.push({ geo: new THREE.BoxGeometry(0.008, 0.075, 0.030), pos: [0.036, 0.245, 0] });
+    g.add(new THREE.Mesh(geoBatch(bossParts), steel));
+
+    // 4. 다리 3개 — 직선 암 → 한 번 꺾임 → 직선 끝단
+    //    펼침각(α)은 스펙이 아니라 계산값입니다. 끝단이 바닥에 닿도록 다리마다
+    //    따로 풉니다. 보스가 3단 스태거라 다리별로 각이 조금씩 달라집니다.
+    const th = THREE.MathUtils.degToRad(sp.bendDeg);
+    const L1 = sp.legArm, L2 = sp.legTip, FOOT_R = 0.0125;
+    const FOLD = THREE.MathUtils.degToRad(-82);   // 접으면 암이 컬럼과 나란해집니다
+
+    const bisect = (target) => {
+        const f = a => L1 * Math.sin(a) + L2 * Math.sin(a + th) - target;
+        let lo = -0.6, hi = 1.2;
+        for (let i = 0; i < 48; i++) { const m = (lo + hi) / 2; if (f(m) < 0) lo = m; else hi = m; }
+        return (lo + hi) / 2;
+    };
+    // 발이 비스듬히 붙어 있어 띄울 높이가 α 에 의존합니다 — 2패스로 수렴시킵니다
+    const solveAlpha = (y0) => {
+        let a = bisect(y0 - FOOT_R);
+        for (let k = 0; k < 3; k++) a = bisect(y0 - FOOT_R * Math.cos(a + th));
+        return a;
+    };
+
+    const legParts = [], footParts = [];
+    for (let i = 0; i < 3; i++) {
+        const ang = (i / 3) * Math.PI * 2 + Math.PI / 6;
+        const cx = Math.cos(ang), cz = Math.sin(ang), y0 = sp.legY[i];
+        const a = THREE.MathUtils.lerp(solveAlpha(y0), FOLD, sp.fold);
+
+        // (반경 u, 높이 v) 평면에서 계산한 뒤 3D 로 올립니다
+        const d1 = [Math.cos(a), -Math.sin(a)];
+        const d2 = [Math.cos(a + th), -Math.sin(a + th)];
+        const p0 = [sp.legHubR - 0.002, y0];
+        const pb = [p0[0] + L1 * d1[0], p0[1] + L1 * d1[1]];   // 꺾이는 지점
+        const pt = [pb[0] + L2 * d2[0], pb[1] + L2 * d2[1]];   // 끝단
+        const go = (p, d, t) => [p[0] + d[0] * t, p[1] + d[1] * t];
+        const V = q => new THREE.Vector3(cx * q[0], q[1], cz * q[0]);
+
+        // 꺾임을 둥글게 — 코너 앞뒤에 점을 넣고 CatmullRom 으로 잇습니다
+        const curve = new THREE.CatmullRomCurve3([
+            V(p0), V(go(p0, d1, L1 * 0.55)),
+            V(go(pb, d1, -L1 * 0.10)), V(go(pb, d2, L2 * 0.18)),
+            V(pt),
+        ], false, 'catmullrom', 0.5);
+        legParts.push({ geo: new THREE.TubeGeometry(curve, 10, legR, 5, false) });
+
+        // 고무 발 — 끝단 축을 따라 붙습니다
+        footParts.push(_rod(V(go(pt, d2, -0.030)).toArray(), V(pt).toArray(), FOOT_R, 6));
+    }
+    g.add(new THREE.Mesh(geoBatch(legParts), steel));
+    g.add(new THREE.Mesh(geoBatch(footParts), M.rubber()));
+
+    // 6. 베이스 잠금 T노브
+    g.add(new THREE.Mesh(geoBatch([
+        { geo: new THREE.CylinderGeometry(0.006, 0.006, 0.030, 6),
+          pos: [-0.032, sp.legY[2], 0], rot: [0, 0, Math.PI / 2] },
+        { geo: new THREE.BoxGeometry(0.007, 0.032, 0.012), pos: [-0.049, sp.legY[2], 0] },
+    ]), alu));
+
+    return g;
+}
+
+// ── terisTsn6cfTripod  (출처: TRP-001_TSN6CF-Q-PLUS/TRP-001_threejs.js) ──
+function terisTsn6cfTripod(sp) {
+    const g = new THREE.Group();
+    
+    const yS = sp.hBowl - 0.055;               // 스파이더 힌지 높이
+    const dy = yS - 0.020;
+
+    // 펼침 폭은 스프레더로 정하지만, 다리 길이가 물리적으로 가능한 범위를
+    // 벗어나면 폭을 자동으로 보정합니다 (낮게 쓰면 다리를 더 벌려야 합니다).
+    let R = sp.spreadD / 2;
+    const legLen = Math.hypot(dy, R - sp.hingeR);
+    if (legLen > sp.legMax) R = sp.hingeR + Math.sqrt(Math.max(0, sp.legMax ** 2 - dy ** 2));
+    if (legLen < sp.legMin) R = sp.hingeR + Math.sqrt(Math.max(0, sp.legMin ** 2 - dy ** 2));
+    const carbon = mat(0x24262b, { roughness: 0.42, metalness: 0.25 });
+    const red = mat(0xc0261f, { roughness: 0.45, metalness: 0.10 });
+    const cast = M.aluDk();
+
+    const legParts = [], stripeParts = [], castParts = [], spdParts = [];
+
+    // ── 스파이더 + 75mm 볼 캐스팅 ─────────────────────────────────────────
+    const cyl = (r, y0, y1, seg = 10, open = false) => ({
+        geo: new THREE.CylinderGeometry(r, r, y1 - y0, seg, 1, open),
+        pos: [0, (y0 + y1) / 2, 0],
+    });
+    castParts.push(cyl(0.056, yS - 0.014, yS + 0.034, 10));                 // 캐스팅 몸통
+    castParts.push({ geo: new THREE.CylinderGeometry(0.056, 0.040, 0.022, 10),
+                     pos: [0, sp.hBowl - 0.011, 0] });                      // 볼 시트 테이퍼
+    castParts.push(cyl(sp.ball / 2 + 0.004, sp.hBowl - 0.004, sp.hBowl, 12)); // 볼 개구부 림
+    castParts.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, 0.052, 6),
+                     pos: [0.062, yS + 0.010, 0], rot: [0, 0, Math.PI / 2] }); // 볼 클램프 핸들
+
+    // 원버튼 언락 중앙 로드 — 스프레더 허브까지 내려옵니다
+    castParts.push(cyl(0.011, 0.030, yS - 0.010, 6));
+
+    for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + Math.PI / 2;
+        const cx = Math.cos(a), cz = Math.sin(a);
+        const tx = -cz, tz = cx;                                    // 접선 방향 (트윈튜브 오프셋)
+
+        const A = new THREE.Vector3(cx * sp.hingeR, yS, cz * sp.hingeR);
+        const B = new THREE.Vector3(cx * R, 0.020, cz * R);
+        const Mid = A.clone().lerp(B, 0.52);
+
+        const off = (p, s, d) => [p.x + tx * s * d, p.y, p.z + tz * s * d];
+
+        // 트윈튜브 — 상단 2 + 하단 2
+        for (const s of [-1, 1]) {
+            legParts.push(rod(off(A, s, sp.twinGap / 2), off(Mid, s, sp.twinGap / 2), sp.tubeUp / 2, 5));
+            legParts.push(rod(off(Mid.clone().lerp(B, -0.05), s, sp.twinGap / 2 - 0.002),
+                              off(B, s, sp.twinGap / 2 - 0.002), sp.tubeLo / 2, 5));
+        }
+        // 레드 스트라이프 — 두 튜브 사이
+        stripeParts.push(rod([A.x, A.y, A.z], [Mid.x, Mid.y, Mid.z], 0.0055, 4));
+
+        // 힌지 브래킷 + 중간 클램프
+        castParts.push({ geo: new THREE.BoxGeometry(0.030, 0.046, 0.026),
+                         pos: [cx * 0.052, yS - 0.006, cz * 0.052], rot: [0, -a, 0] });
+        const cl = rod(off(Mid.clone().lerp(A, 0.05), 0, 0), off(Mid.clone().lerp(B, 0.05), 0, 0), 0.026, 6);
+        cl.geo = new THREE.BoxGeometry(0.052, 0.052, 0.055);
+        castParts.push({ geo: cl.geo, pos: cl.pos, quat: cl.quat });
+
+        // 그라운드 스프레더 — 허브에서 각 발까지
+        spdParts.push(rod([0, 0.022, 0], [B.x, 0.022, B.z], 0.014, 4));
+        spdParts.push({ geo: new THREE.BoxGeometry(0.050, 0.036, 0.044),
+                        pos: [B.x, 0.018, B.z], rot: [0, -a, 0] });          // 발 클램프
+    }
+
+    // 스프레더 허브
+    spdParts.push(cyl(0.030, 0.010, 0.034, 8));
+
+    g.add(new THREE.Mesh(geoBatch(legParts), carbon));
+    g.add(new THREE.Mesh(geoBatch(stripeParts), red));
+    g.add(new THREE.Mesh(geoBatch(castParts), cast));
+    g.add(new THREE.Mesh(geoBatch(spdParts), M.black()));
+
+    return g;
+}
+
+// ── terisTsn6Head  (출처: TRP-001_TSN6CF-Q-PLUS/TRP-001_threejs.js) ──
+function terisTsn6Head(sp) {
+    const g = new THREE.Group();
+    
+    const body = M.black(), alu = M.aluDk(), knobM = M.knob();
+    const red = mat(0xc0261f, { roughness: 0.45, metalness: 0.10 });
+
+    const add = (geo, m, x = 0, y = 0, z = 0) => {
+        const me = new THREE.Mesh(geo, m);
+        me.position.set(x, y, z);
+        g.add(me);
+        return me;
+    };
+
+    // ── 볼 (75mm 반구) + 클램프 칼라 ──────────────────────────────────────
+    const bR = sp.ball / 2;
+    add(new THREE.SphereGeometry(bR, 14, 6, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.48),
+        alu, 0, -sp.yBowl + bR * 0.55, 0);
+    add(new THREE.CylinderGeometry(0.040, 0.040, 0.020, 12), alu, 0, -sp.yBowl + 0.044, 0);
+
+    // ── 헤드 본체 ─────────────────────────────────────────────────────────
+    add(new THREE.BoxGeometry(0.098, 0.070, 0.116), body, 0, -0.004, 0.004);
+    add(new THREE.BoxGeometry(0.086, 0.026, 0.100), alu, 0, -0.042, 0.004);   // 팬 베이스
+
+    // 측면 드래그 다이얼 (좌우) + 로고면
+    for (const s of [-1, 1]) {
+        add(new THREE.CylinderGeometry(0.031, 0.031, 0.010, 14), alu, s * 0.052, -0.004, 0.006)
+            .rotation.z = Math.PI / 2;
+    }
+    add(new THREE.CylinderGeometry(0.018, 0.018, 0.004, 12),
+        mat(0xc8a24a, { roughness: 0.5, metalness: 0.6 }), -0.058, -0.004, 0.006)
+        .rotation.z = Math.PI / 2;                                            // TERIS 로고 디스크
+
+    // 카운터밸런스 / 틸트 잠금 노브
+    add(new THREE.CylinderGeometry(0.013, 0.013, 0.020, 10), knobM, 0.056, -0.026, -0.038)
+        .rotation.z = Math.PI / 2;
+
+    // ── QR 플레이트 (슬라이딩) + 레드 릴리즈 레버 ─────────────────────────
+    add(new THREE.BoxGeometry(sp.plateW, 0.014, sp.plateL), alu, 0, sp.yPlate - 0.007, 0.010);
+    add(new THREE.BoxGeometry(0.070, 0.016, 0.090), body, 0, sp.yPlate - 0.022, 0.006); // 플레이트 베이스
+    add(new THREE.BoxGeometry(0.030, 0.014, 0.026), red, 0.048, sp.yPlate - 0.016, 0.030);
+
+    // 수평계
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 10),
+        mat(0x9fe8a0, { roughness: 0.3, metalness: 0, emissive: 0x2f5a30, emissiveIntensity: 0.4 }),
+        -0.034, -0.030, 0.058);
+
+    // ── 팬바 — 마운트에서 뒤·오른쪽으로 뻗습니다 ──────────────────────────
+    const barDir = new THREE.Vector3(0.62, 0.14, -0.77).normalize();
+    const mount = new THREE.Vector3(0.044, -0.020, -0.046);
+    const barGeo = new THREE.CylinderGeometry(0.008, 0.008, sp.barLen * 0.62, 8);
+    const bar = add(barGeo, alu);
+    bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), barDir);
+    bar.position.copy(mount).addScaledVector(barDir, sp.barLen * 0.31);
+
+    const gripGeo = new THREE.CylinderGeometry(0.013, 0.012, sp.barLen * 0.40, 10);
+    const grip = add(gripGeo, M.rubber());
+    grip.quaternion.copy(bar.quaternion);
+    grip.position.copy(mount).addScaledVector(barDir, sp.barLen * 0.80);
+
+    add(new THREE.CylinderGeometry(0.014, 0.014, 0.018, 10), knobM, mount.x, mount.y, mount.z)
+        .quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), barDir);
+
+    return g;
+}
+
+// ── SPECS 등록 (실제 자산 id) — 제조사 공식 치수 ─────────────────────────────
+// NANLITE Forza 60B / 60B Ⅱ : 본체 247×134×87mm
+[['LIT-005'], ['LIT-006']].forEach(([id]) => {
+    SPECS[id] = { w: 0.134, h: 0.087, d: 0.247, bodyW: 0.090,
+        zFront: 0.110, zBack: -0.137, yokeDrop: 0.166, beam: 120, src: 'spec' };
+});
+// Godox AD300Pro (Ⅱ 본체 공용) : 186.9×100.1×89.9mm
+SPECS['LIT-009'] = { w: 0.1001, h: 0.0899, d: 0.1869, axisY: 0.064,
+    zFront: 0.102, zBack: -0.085, yokeDrop: 0.048, beam: 110, src: 'spec' };
+// NANLITE PJ-FMM 프로젝션 어태치먼트(+36° 렌즈) → MOD-004
+SPECS['MOD-004'] = { w: 0.160, h: 0.235, d: 0.215, yTop: 0.081, yBot: -0.154,
+    goboD: 0.078, goboFrameD: 0.066, lensRingD: 0.132,
+    barrelD: 0.117, len: 0.150, beam: 36, src: 'spec' };
+// NANLITE FL-11 프레넬 렌즈(+반도어) → MOD-005
+SPECS['MOD-005'] = { w: 0.110, h: 0.110, d: 0.135, outerD: 0.110, lensD: 0.085,
+    beam: 30, ringD: 0.114, bigW: 0.108, bigL: 0.125, smallW: 0.088, smallL: 0.105,
+    open: 0.55, src: 'spec' };
+// Teris TSN6CF-Q PLUS 삼각대(+헤드) → TRP-003
+SPECS['TRP-003'] = { w: 1.05, h: 1.30, d: 1.05, src: 'spec',
+    hBowl: 1.145, hBowlMin: 0.50, hBowlMax: 1.59, spreadD: 1.05, ball: 0.075,
+    stages: 2, tubeUp: 0.025, tubeLo: 0.022, twinGap: 0.027, hingeR: 0.058,
+    legMin: 0.78, legMax: 1.60,
+    yBowl: 0.055, yPlate: 0.100, plateL: 0.132, plateW: 0.062, barLen: 0.400 };
+// VALENS PRO-403A A스탠드 → STD-A-001~004
+['STD-A-001', 'STD-A-002', 'STD-A-003', 'STD-A-004'].forEach(id => {
+    SPECS[id] = { w: 1.28, h: 2.00, d: 1.28, src: 'spec',
+        hMin: 1.22, hMax: 3.00, spreadD: 1.28,
+        tubeA: 0.025, tubeB: 0.030, tubeC: 0.035, legTube: 0.022,
+        yHub: 0.37, spigotD: 0.016, spigotL: 0.070 };
+});
+// VALENS PRO-40T (파일상 C스탠드형 크롬 스탠드) → STD-T-001
+SPECS['STD-T-001'] = { w: 1.04, h: 2.20, d: 1.04, src: 'spec',
+    hMin: 1.45, hMax: 3.23, spreadD: 1.04,
+    tubeA: 0.025, tubeB: 0.030, tubeC: 0.035, legTube: 0.019, fold: 0,
+    legArm: 0.415, legTip: 0.155, bendDeg: 52, legHubR: 0.030,
+    yBase: 0.30, legY: [0.130, 0.185, 0.240], spigotD: 0.016, spigotL: 0.070 };
+
+// 서브 부품 스펙 (자산 아님 — 빌더에 넘긴다)
+const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45 };
+
+// ── 판별 predicate ──────────────────────────────────────────────────────────
+function isForza60B(eq) { return eq && (['LIT-005','LIT-006'].includes(eq.id) || /forza\s*60|fs-?60/i.test(eq.product || '')); }
+function isAD300Pro(eq) { return eq && (eq.id === 'LIT-009' || /ad300\s*pro/i.test(eq.product || '')); }
+function isFresnelMod(eq) { return eq && (eq.id === 'MOD-005' || /fresnel|프레넬|fl-?11/i.test(eq.product || '')); }
+function isAStandPro(eq) { return eq && (/^STD-A-/.test(eq.id) || /pro-?403a/i.test(eq.product || '')); }
+function isTStandPro(eq) { return eq && (/^STD-T-/.test(eq.id) || /pro-?40t/i.test(eq.product || '')); }
+function isTerisTripod(eq) { return eq && (eq.id === 'TRP-003' || /tsn6|teris/i.test(eq.product || '')); }
