@@ -109,7 +109,7 @@ let a=0,b=0; A.buildItemMesh(A.EQ().find(e=>e.id==='CAM-003'),withBat).traverse(
 A.buildItemMesh(A.EQ().find(e=>e.id==='CAM-003'),noBat).traverse(()=>b++);
 t('배터리가 3D에 그려짐', a>b, `${b} → ${a}`);
 t('렌즈 필터 반영', html.includes("p.slot === 'filter'"));
-t('C스탠드 그립암은 세트 결합 시에만', html.includes('isCStand && armKitOf(it)')&&html.includes("p.slot === 'hang'"));
+t('C스탠드 그립암은 세트 결합 시에만', html.includes('isCStandPro(supEq)')&&html.includes('armKitOf(it)')&&html.includes("p.slot === 'hang'"));
 t('무게추 반영', html.includes("p.slot === 'weight'"));
 t('조명 전원 반영', html.includes("p.slot === 'power' || p.slot === 'batt'"));
 // C스탠드에 매단 조명

@@ -68,5 +68,21 @@ t('C스탠드 전용 모델(PRO-40T)', nodes(build('STD-C-001'))>=6, nodes(build
 t('Teris 삼각대 디테일(카본 트윈튜브+헤드)', nodes(build('TRP-003'))>=6, nodes(build('TRP-003')));
 { const d=dim(build('TRP-003')); t('삼각대 다리 펼침(약 1m)', d.x>0.8, JSON.stringify(d)); }
 
+console.log('=== 7. 리그 결합 (지지대 있을 때만 스탠드, 최신 모델) ===');
+const rig=(id,parts,h3)=>A.buildItemMesh(A.EQ().find(e=>e.id===id),{eqId:id,x:0,y:0,h3:h3||1.5,rot:0,parts:parts||[]});
+// 카메라 단독 = 삼각대 없음 → 카메라+삼각대보다 훨씬 적은 메시, 낮은 바운딩박스
+const camAlone=rig('CAM-003',[]), camTrp=rig('CAM-003',[{eqId:'TRP-003',slot:'support'}],1.3);
+t('카메라 단독 = 삼각대 없음(결합보다 메시 적음)', nodes(camAlone)<nodes(camTrp), `${nodes(camAlone)} vs ${nodes(camTrp)}`);
+// 카메라 단독은 카메라 몸체가 h3 높이에 떠 있고, 바닥엔 위치 디스크만(다리 없음)
+t('카메라 단독 바닥~머리 사이가 비어있음(다리 없음)', (()=>{
+  // 다리가 있으면 y=0.3~1.2 구간에 메시가 많다. 단독이면 그 구간 메시가 거의 없다.
+  let midMeshes=0; camAlone.updateMatrixWorld(true);
+  camAlone.traverse(m=>{if(m.isMesh){const b=new THREE.Box3().setFromObject(m);const cy=(b.min.y+b.max.y)/2;if(cy>0.3&&cy<1.1)midMeshes++;}});
+  return midMeshes===0;})(), 'mid');
+// 조명+스탠드는 최신 모델 사용(옛 폴백보다 메시 많음)
+t('조명+A스탠드 = 최신 모델', nodes(rig('LIT-001',[{eqId:'STD-A-001',slot:'support'}],2.0))>=8);
+t('조명+C스탠드 = 최신 모델', nodes(rig('LIT-005',[{eqId:'STD-C-001',slot:'support'}],2.0))>=8);
+t('카메라+삼각대 = 최신 Teris', nodes(camTrp)>=8, nodes(camTrp));
+
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);

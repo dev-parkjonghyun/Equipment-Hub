@@ -7451,24 +7451,32 @@ function buildItemMesh(eq, it) {
                     0, standH * 0.5, 0);
                 addMesh(grp, new THREE.BoxGeometry(0.05, 0.03, 0.05), M.knob(), 0, standH * 0.62, 0);
             } else {
+                const supEq = EQUIPMENT.find(e => e.id === supId) || { id: supId };
                 const isTrp = supId.startsWith('TRP');
-                const isCStand = supId.startsWith('STD-C');
-                if (isCStand) { cStandBase(grp, ssp.w); chromeRiser(grp, 0.26, standH, 2); }
-                else { legSet(grp, ssp.w, standH * (isTrp ? 0.84 : 0.3));
-                       riser(grp, standH, 3, isTrp ? 0.021 : 0.018); }
-                if (isTrp) {   // 미드 스프레더
-                    for (let i = 0; i < 3; i++) {
-                        const a2 = (i / 3) * Math.PI * 2;
-                        const bar = addMesh(grp, new THREE.CylinderGeometry(0.008, 0.008, ssp.w * 0.42, 6),
-                            M.aluDk(), Math.cos(a2) * ssp.w * 0.21, standH * 0.34, Math.sin(a2) * ssp.w * 0.21);
-                        bar.rotation.z = Math.PI / 2; bar.rotation.y = -a2;
+                if (isTerisTripod(supEq)) {              // 전용 삼각대 (Teris) — 헤드 위에 장비 얹음
+                    grp.add(terisTsn6cfTripod(Object.assign({}, ssp, { hBowl: standH })));
+                } else if (isCStandPro(supEq)) {         // 전용 C스탠드 (PRO-40T)
+                    grp.add(valensPro40t(Object.assign({}, ssp, {
+                        h: Math.max(ssp.hMin || 0.5, standH) })));
+                    if (armKitOf(it))
+                        gripArm(grp, ssp.arm || 1.0, standH - 0.02, yaw,
+                            rigParts(it).filter(p => p.slot === 'hang'));
+                } else if (isAStandPro(supEq)) {         // 전용 A스탠드 (PRO-403A) — A·작은A·T
+                    grp.add(valensPro403a(Object.assign({}, ssp, {
+                        h: Math.max(ssp.hMin || 0.5, standH) })));
+                } else {                                 // 일반 폴백 (Manfrotto 삼각대 등)
+                    legSet(grp, ssp.w, standH * (isTrp ? 0.84 : 0.3));
+                    riser(grp, standH, 3, isTrp ? 0.021 : 0.018);
+                    if (isTrp) {   // 미드 스프레더
+                        for (let i = 0; i < 3; i++) {
+                            const a2 = (i / 3) * Math.PI * 2;
+                            const bar = addMesh(grp, new THREE.CylinderGeometry(0.008, 0.008, ssp.w * 0.42, 6),
+                                M.aluDk(), Math.cos(a2) * ssp.w * 0.21, standH * 0.34, Math.sin(a2) * ssp.w * 0.21);
+                            bar.rotation.z = Math.PI / 2; bar.rotation.y = -a2;
+                        }
                     }
+                    addMesh(grp, new THREE.CylinderGeometry(0.045, 0.036, 0.042, 14), M.black(), 0, standH + 0.021, 0);
                 }
-                // 그립암 세트를 결합했을 때만 (실제로 1m 옆으로 뻗어 공간을 차지한다)
-                if (isCStand && armKitOf(it))
-                    gripArm(grp, ssp.arm || 1.0, standH - 0.02, yaw,
-                        rigParts(it).filter(p => p.slot === 'hang'));
-                addMesh(grp, new THREE.CylinderGeometry(0.045, 0.036, 0.042, 14), M.black(), 0, standH + 0.021, 0);
             }
             // 스탠드에 매단 무게추 / 바닥에 놓은 전원
             rigParts(it).filter(p => p.slot === 'weight').forEach((p, i) => {
@@ -7481,10 +7489,8 @@ function buildItemMesh(eq, it) {
                 addMesh(grp, new THREE.BoxGeometry(bs.w || 0.09, bs.h || 0.14, bs.d || 0.06),
                     mat(0x23272e, { roughness: .7 }), 0.055, standH * 0.42 + i * 0.16, 0.045);
             });
-        } else {
-            legSet(grp, Math.max(0.75, sp.w * 0.9), standH * 0.3);
-            riser(grp, standH, 3, 0.018);
         }
+        // 지지대가 없으면 스탠드/삼각대를 그리지 않는다 (카메라 단독 = 삼각대 없음)
         const head = new THREE.Group();
         head.name = 'head_' + eq.cat;
         head.position.y = standH;
