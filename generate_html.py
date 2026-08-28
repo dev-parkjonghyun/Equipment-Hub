@@ -6710,6 +6710,19 @@ function buildItemMesh(eq, it) {
                 head.add(ph);
                 modY = sp.yokeDrop + (proAD ? sp.axisY : 0);
                 modZ = sp.zFront;
+            } else if (isMixPanel(eq)) {                  // NANLITE MixPanel 150 (요크 포함)
+                const ph = mixPanel150(sp);
+                ph.position.y = sp.yokeDrop;
+                head.add(ph);
+                modY = sp.yokeDrop; modZ = sp.d * 0.5;
+            } else if (isPavoSlim(eq)) {                  // NANLITE PavoSlim 240B (2×2 패널)
+                const ph = pavoSlim240bPanel(sp);
+                ph.position.y = sp.h * 0.5;               // 패널 중심을 스탠드 상단 위로 올림
+                head.add(ph);
+                modY = sp.h * 0.5; modZ = sp.d * 0.5;
+            } else if (isV1Flash(eq)) {                   // Godox V1 라운드헤드 플래시 (발이 스탠드 상단)
+                head.add(godoxV1(sp));
+                modY = sp.yPivot; modZ = sp.zHeadFront;
             } else {
                 // 요크(U 브래킷)
                 const yw = sp.w * 0.78;
@@ -6800,6 +6813,8 @@ function buildItemMesh(eq, it) {
                 const l = pjFmmLens(sp); l.position.set(0, sp.h * 0.5, sp.d); head.add(l);
             } else if (isFresnelMod(eq)) {   // 프레넬 렌즈
                 const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
+            } else if (isNanlink(eq)) {      // NANLINK BOX 무선 트랜스미터 (소형 박스)
+                const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
             } else {
                 const sb = parabolicSoftbox(Math.max(0.25, sp.w * 0.6), Math.max(0.22, sp.d), 16);
                 sb.rotation.x = Math.PI / 2;

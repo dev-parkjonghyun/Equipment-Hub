@@ -4,6 +4,7 @@ const {makeHarness}=require('./harness.js');
 const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,projectionMesh,isProjection,
  isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
+ isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -87,6 +88,21 @@ t('카메라+삼각대 = 최신 Teris', nodes(camTrp)>=8, nodes(camTrp));
 const trif=rig('MOD-010',[],1.5), trifMid=(()=>{let n=0;trif.updateMatrixWorld(true);trif.traverse(m=>{if(m.isMesh){const b=new THREE.Box3().setFromObject(m);const cy=(b.min.y+b.max.y)/2;if(cy>0.3&&cy<1.1)n++;}});return n;})();
 t('Triflector는 지지대 없어도 스탠드 있음', trifMid>0, trifMid);
 t('Triflector 기본 높이 150cm', A.defaultHeight(A.EQ().find(e=>e.id==='MOD-010'))===1.50);
+
+console.log('=== 8. 2차 추가 모델 (PavoSlim·MixPanel·V1·NANLINK) ===');
+t('PavoSlim 인식(LIT-003)', A.isPavoSlim({id:'LIT-003'}) && A.isPavoSlim({product:'NANLITE PavoSlim240B'}));
+t('MixPanel 인식(LIT-004)', A.isMixPanel({id:'LIT-004'}) && A.isMixPanel({product:'MixPanel 150'}));
+t('V1 인식(LIT-010)', A.isV1Flash({id:'LIT-010'}) && A.isV1Flash({product:'고독스 V1'}));
+t('NANLINK 인식(MOD-006)', A.isNanlink({id:'MOD-006'}) && A.isNanlink({product:'NANLINK BOX'}));
+t('PavoSlim 공식 치수', (()=>{const s=A.specOf('LIT-003');return s.w===0.6087&&s.src==='spec';})());
+t('MixPanel 공식 치수', (()=>{const s=A.specOf('LIT-004');return s.d===0.076&&s.src==='spec';})());
+t('빌더가 메시 생성', nodes(A.pavoSlim240bPanel(A.specOf('LIT-003')))>=1 && nodes(A.mixPanel150(A.specOf('LIT-004')))>=1
+  && nodes(A.godoxV1(A.specOf('LIT-010')))>=1 && nodes(A.nanlinkBoxWsTb1(A.specOf('MOD-006')))>=1);
+t('패널은 가로로 넓음(PavoSlim)', (()=>{const d=dim(A.pavoSlim240bPanel(A.specOf('LIT-003')));return d.x>0.4&&d.y>0.4;})());
+t('V1은 작음(플래시)', (()=>{const d=dim(A.godoxV1(A.specOf('LIT-010')));return d.y<0.3;})());
+// dispatch: 4종이 일반형 대신 전용 모델을 씀
+t('LIT-003/004/010 dispatch에 전용 모델 연결', nodes(build('LIT-003'))>=1 && nodes(build('LIT-004'))>=1 && nodes(build('LIT-010'))>=1);
+t('MOD-006 dispatch 연결', nodes(build('MOD-006'))>=1);
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
