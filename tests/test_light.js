@@ -95,7 +95,7 @@ t('MixPanel 인식(LIT-004)', A.isMixPanel({id:'LIT-004'}) && A.isMixPanel({prod
 t('V1 인식(LIT-010)', A.isV1Flash({id:'LIT-010'}) && A.isV1Flash({product:'고독스 V1'}));
 t('NANLINK 인식(MOD-006)', A.isNanlink({id:'MOD-006'}) && A.isNanlink({product:'NANLINK BOX'}));
 t('PavoSlim 공식 치수', (()=>{const s=A.specOf('LIT-003');return s.w===0.6087&&s.src==='spec';})());
-t('MixPanel 공식 치수', (()=>{const s=A.specOf('LIT-004');return s.d===0.076&&s.src==='spec';})());
+t('MixPanel 실측 치수(426×370×82mm, 긴 변 가로)', (()=>{const s=A.specOf('LIT-004');return s.w===0.426&&s.h===0.370&&s.d===0.082&&s.w>s.h&&s.src==='spec';})());
 t('빌더가 메시 생성', nodes(A.pavoSlim240bPanel(A.specOf('LIT-003')))>=1 && nodes(A.mixPanel150(A.specOf('LIT-004')))>=1
   && nodes(A.godoxV1(A.specOf('LIT-010')))>=1 && nodes(A.nanlinkBoxWsTb1(A.specOf('MOD-006')))>=1);
 t('패널은 가로로 넓음(PavoSlim)', (()=>{const d=dim(A.pavoSlim240bPanel(A.specOf('LIT-003')));return d.x>0.4&&d.y>0.4;})());

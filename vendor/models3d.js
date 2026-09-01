@@ -530,6 +530,72 @@ function valensPro403a(sp) {
     return g;
 }
 
+// ── valensVl3000g  (출처: ACC-006_ASSY-BGS-001/ACC-006_threejs.js) ──
+// VALENS VL-3000G 3.2m 이동 배경용 크로스바 (봉 단품). X축으로 눕힌 튜브.
+function valensVl3000g(sp) {
+    const g = new THREE.Group();
+
+    const N = Math.max(1, Math.min(4, sp.sections));
+    const L = sp.secL * N;
+    const R = sp.tubeD / 2;
+    const anod = mat(0x1f2328, { roughness: 0.32, metalness: 0.72 });   // 흑색 아노다이징
+
+    const cylX = (r, len, x, seg) => ({
+        geo: new THREE.CylinderGeometry(r, r, len, seg),
+        pos: [x, 0, 0], rot: [0, 0, Math.PI / 2],
+    });
+
+    const sprd = Math.max(0, sp.spread || 0);
+    const tube = [], joints = [];
+
+    if (sprd === 0) {
+        tube.push(cylX(R, L, 0, 10));
+        for (let i = 1; i < N; i++) joints.push(cylX(R + 0.0012, 0.014, -L / 2 + i * sp.secL, 8));
+    } else {
+        const total = N * sp.secL + (N - 1) * sprd;
+        for (let i = 0; i < N; i++) {
+            const x0 = -total / 2 + i * (sp.secL + sprd);
+            tube.push(cylX(R, sp.secL, x0 + sp.secL / 2, 10));
+            if (i < N - 1) {
+                const out = Math.min(sprd + 0.010, sp.ferruleL);
+                joints.push(cylX(sp.ferruleD / 2, out, x0 + sp.secL + out / 2 - 0.005, 8));
+            }
+        }
+    }
+    const half = sprd === 0 ? L / 2 : (N * sp.secL + (N - 1) * sprd) / 2;
+    for (const s of [-1, 1]) tube.push(cylX(R + 0.0008, 0.010, s * (half - 0.005), 8));
+
+    g.add(new THREE.Mesh(geoBatch(tube), anod));
+    if (joints.length) g.add(new THREE.Mesh(geoBatch(joints), M.chrome()));
+    return g;
+}
+
+// ── backdropRig  (출처: ACC-006_ASSY-BGS-001) — 앱 자산에 맞게 각색 ──
+// 배경 스탠드 2대(A스탠드 PRO-403A) + 크로스바 봉. 원점 = 리그 바닥 정중앙,
+// 로컬 X축이 두 스탠드를 잇는 방향. span=스탠드 간격, h=봉 높이.
+function backdropRig(opts) {
+    const g = new THREE.Group();
+    const cb = SPECS['ACC-006'];
+    // 배경 스탠드는 배경지를 걸 만큼 높이 세우므로 풀사이즈 A스탠드 형상을 씀
+    const st = opts.standSpec || _aStandSpec(1.0);
+    const sections = Math.max(1, Math.min(4, opts.sections || cb.sections));
+    const barLen = cb.secL * sections;
+    const h = Math.min(Math.max(opts.h || 2.30, st.hMin), st.hMax);
+    const span = Math.min(opts.span || 2.90, barLen - 0.20);   // 봉 안쪽으로
+
+    [-1, 1].forEach(s => {
+        const m = valensPro403a(Object.assign({}, st, { h }));
+        m.position.x = s * span / 2;
+        m.rotation.y = Math.PI / 2;      // 다리 하나가 배경(-Z) 쪽을 보게
+        g.add(m);
+    });
+
+    const bar = valensVl3000g(Object.assign({}, cb, { sections }));
+    bar.position.y = h - cb.yDrop;
+    g.add(bar);
+    return g;
+}
+
 // ── valensPro40t  (출처: STD-002_PRO-40T/STD-002_threejs.js) ──
 function valensPro40t(sp) {
     const g = new THREE.Group();
@@ -1134,7 +1200,8 @@ function _aStandSpec(scale) {
 SPECS['LIT-003'] = { w: 0.6087, h: 0.6021, d: 0.0286, src: 'spec',
     t: 0.0286, border: 0.016, zBack: 0.048, fold: 0, beam: 60 };
 // NANLITE MixPanel 150 패널 → LIT-004
-SPECS['LIT-004'] = { w: 0.483, h: 0.406, d: 0.076, src: 'spec',
+// 제조사 실측: 본체 426×370×82mm (마운트 브래킷 포함). 긴 변(가로 0.426)이 수평.
+SPECS['LIT-004'] = { w: 0.426, h: 0.370, d: 0.082, src: 'spec',
     border: 0.022, yokeGap: 0.014, yokeDrop: 0.300, beam: 115 };
 // GODOX V1 라운드헤드 플래시 → LIT-010
 SPECS['LIT-010'] = { w: 0.076, h: 0.197, d: 0.093, src: 'spec',
@@ -1143,6 +1210,15 @@ SPECS['LIT-010'] = { w: 0.076, h: 0.197, d: 0.093, src: 'spec',
 // NANLITE NANLINK BOX WS-TB-1 무선 트랜스미터 → MOD-006
 SPECS['MOD-006'] = { w: 0.107, h: 0.073, d: 0.044, src: 'spec',
     bodyD: 0.038, chamX: 0.022, chamY: 0.014 };
+
+// VALENS VL-3000G 3.2m 이동 배경용 크로스바 → ACC-006 (지름·무게는 실측 추정)
+SPECS['ACC-006'] = { w: 3.20, h: 0.05, d: 0.05, src: 'est',
+    sections: 4, secL: 0.80, len: 3.20,
+    tubeD: 0.025, ferruleD: 0.021, ferruleL: 0.070,
+    yDrop: 0.028, spread: 0 };
+// STD-AS-001/002 + ACC-006 이 한 씬에 모이면 이 리그로 대체(배경지 제외)
+SPECS['ASSY-BGS-001'] = { kind: 'assembly', parts: ['STD-AS-001', 'STD-AS-002', 'ACC-006'],
+    h: 2.30, span: 2.90, sections: 4 };
 
 // 서브 부품 스펙 (자산 아님 — 빌더에 넘긴다)
 const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45 };

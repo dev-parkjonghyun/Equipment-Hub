@@ -6769,11 +6769,52 @@ function knuckle(g, x, y, z) {
 }
 
 // ───────── 장비 메시 ─────────
+// 배경 리그(ASSY-BGS-001): STD-AS-001 + STD-AS-002 + ACC-006 이 한 씬에 모이면
+// 개별 3개 대신 backdropRig 하나로 그린다. 두 스탠드 사이에 봉을 걸친 모습.
+function buildBackdropRig(f) {
+    if (typeof backdropRig !== 'function') return null;
+    const items = (f && f.items) || {};
+    const find = id => Object.entries(items).find(([k, it]) => it.eqId === id);
+    const bar = find('ACC-006'), sa = find('STD-AS-001'), sb = find('STD-AS-002');
+    if (!bar || !sa || !sb) return null;
+
+    const [barF, barIt] = bar, [, aIt] = sa, [, bIt] = sb;
+    const asy = specOf('ASSY-BGS-001');
+    const dx = bIt.x - aIt.x, dy = bIt.y - aIt.y;
+    let span = Math.hypot(dx, dy);
+    let ang = Math.atan2(dy, dx);
+    // 두 스탠드를 겹쳐 두면 간격을 못 구하므로 기본값으로 벌린다
+    if (span < 0.3) { span = asy.span; ang = 0; }
+    const cx = (aIt.x + bIt.x) / 2, cy = (aIt.y + bIt.y) / 2;
+    const h = barIt.h3 || asy.h;
+
+    const g = backdropRig({ h, span, sections: asy.sections });
+    g.position.set(cx, 0, cy);
+    g.rotation.y = -ang;                 // 로컬 X를 두 스탠드 방향에 맞춤(평면 y=월드 z)
+    g.userData.fid = barF;               // 클릭하면 봉(ACC-006)이 선택돼 리그를 옮긴다
+    g.userData.topY = h + 0.05;
+    g.traverse(o => { if (o.isMesh) o.userData.fid = barF; });
+    return { mesh: g, skip: new Set([barF, sa[0], sb[0]]) };
+}
+
 function buildItemMesh(eq, it) {
     const sp = specOf(eq.id);
     const grp = new THREE.Group();
     const h = it.h3 || 0;
     const yaw = -(it.rot || 0) * Math.PI / 180;
+
+    if (eq.id === 'ACC-006' && typeof valensVl3000g === 'function') {
+        // 배경용 크로스바 봉 (단독). 배경 스탠드 2대와 함께 있으면 build3D 가
+        // 리그로 대체하므로 여기엔 오지 않는다. 혼자면 봉만 공중에 그린다.
+        const cb = specOf('ACC-006');
+        const by = h || 1.2;
+        const bar = valensVl3000g(cb);
+        bar.position.y = by;
+        bar.rotation.y = yaw;
+        grp.add(bar);
+        grp.userData.topY = by + cb.tubeD;
+        return grp;
+    }
 
     if (eq.cat === 'TRP' && isTerisTripod(eq)) {  // ── 전용 삼각대 (Teris TSN6CF-Q) ──
         const tsp = Object.assign({}, sp, {
@@ -7206,9 +7247,18 @@ function build3D() {
         R3._framed = state.currentScene;
     }
 
+    // 배경 리그: 작은 A스탠드 2대 + 크로스바 봉이 한 씬에 있으면 하나의 모듈로 그림
+    const bgRig = buildBackdropRig(f);
+    const bgSkip = bgRig ? bgRig.skip : null;
+    if (bgRig) {
+        W.add(bgRig.mesh);
+        R3.picks.push(bgRig.mesh);
+    }
+
     // 장비
     const over = [];
     for (const [fid, it] of Object.entries(f.items)) {
+        if (bgSkip && bgSkip.has(fid)) continue;   // 배경 리그로 대체된 3개는 개별로 안 그림
         const eq = EQUIPMENT.find(e => e.id === it.eqId);
         if (!eq) continue;
         const m = buildItemMesh(eq, it);
