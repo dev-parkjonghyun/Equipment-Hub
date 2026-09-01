@@ -556,6 +556,58 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .share-row.dead{opacity:.45}
 .share-row.dead .sr-n{text-decoration:line-through}
 
+/* ═══ 차량 적재 체크리스트 (전체 화면) ═══ */
+#checklist-view{position:fixed;inset:0;z-index:500;background:var(--bg-0);
+  display:flex;flex-direction:column}
+#cl-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:14px 20px;background:var(--bg-1);border-bottom:1px solid var(--line);
+  flex:0 0 auto}
+#cl-title{flex:1;min-width:160px}
+#cl-scene{font-size:17px;font-weight:700;color:var(--tx-0);letter-spacing:-0.01em}
+#cl-prog{font-size:13px;color:var(--tx-2);margin-top:3px}
+#cl-prog b{color:var(--ok);font-weight:700}
+#cl-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#cl-onlyleft{display:inline-flex;align-items:center;gap:7px;font-size:13px;
+  color:var(--tx-1);cursor:pointer;user-select:none;
+  padding:8px 12px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r-m)}
+#cl-onlyleft input{width:18px;height:18px;accent-color:var(--acc);cursor:pointer}
+#cl-actions button{min-height:44px;padding:0 18px;font-size:13.5px}
+#cl-progbar{height:5px;background:var(--bg-2);flex:0 0 auto}
+#cl-progfill{height:100%;width:0;background:var(--ok);transition:width .2s}
+#cl-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 16px 60px;max-width:820px;width:100%;margin:0 auto}
+.cl-cat{margin-top:20px}
+.cl-cat-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;
+  color:var(--tx-2);text-transform:none;letter-spacing:.02em;
+  padding:6px 4px;position:sticky;top:0;background:var(--bg-0);z-index:1}
+.cl-cat-h .cl-cat-n{color:var(--tx-3);font-weight:600;font-size:12px}
+.cl-row{display:flex;align-items:center;gap:14px;min-height:56px;
+  padding:10px 14px;margin:8px 0;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:var(--r-l);cursor:pointer;transition:background .1s,border-color .1s;
+  user-select:none;-webkit-tap-highlight-color:transparent}
+.cl-row:hover{background:var(--bg-3)}
+.cl-row:active{background:var(--bg-4)}
+.cl-box{width:30px;height:30px;flex:0 0 auto;border-radius:8px;
+  border:2px solid var(--line-2);background:var(--bg-0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;color:#fff;transition:background .1s,border-color .1s}
+.cl-tx{flex:1;min-width:0}
+.cl-name{font-size:15.5px;font-weight:600;color:var(--tx-0);line-height:1.35}
+.cl-id{font-size:11.5px;color:var(--tx-3);font-family:ui-monospace,Menlo,monospace;margin-top:2px}
+.cl-part-tag{display:inline-block;font-size:10px;color:var(--tx-2);
+  background:var(--bg-4);border-radius:4px;padding:1px 6px;margin-left:7px;
+  font-weight:600;vertical-align:middle}
+.cl-row.done{border-color:var(--acc-dim)}
+.cl-row.done .cl-box{background:var(--ok);border-color:var(--ok);color:var(--bg-0)}
+.cl-row.done .cl-name{color:var(--tx-3);text-decoration:line-through}
+.cl-row.done .cl-id{color:var(--tx-3)}
+.cl-empty{text-align:center;color:var(--tx-3);font-size:13px;padding:60px 20px;line-height:1.7}
+@media(max-width:560px){
+  #cl-bar{padding:12px 14px}
+  #cl-scene{font-size:15px}
+  #cl-body{padding:8px 10px 60px}
+}
+
 /* ═══ 로그인 ═══ */
 #auth-chip{background:var(--bg-2);border:1px solid var(--line-2);color:var(--tx-1);
   padding:5px 11px;font-size:11.5px;border-radius:var(--r-m);
@@ -786,6 +838,22 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
       </div>
     </div>
 
+    <!-- 차량 적재 체크리스트 (전체 화면 오버레이) -->
+    <div id="checklist-view" style="display:none">
+      <div id="cl-bar">
+        <div id="cl-title">
+          <div id="cl-scene">차량 체크리스트</div>
+          <div id="cl-prog">실음 0 / 0</div>
+        </div>
+        <div id="cl-actions">
+          <label id="cl-onlyleft"><input type="checkbox" id="cl-only" onchange="renderChecklist()"> 안 실은 것만</label>
+          <button onclick="resetChecklist()">전체 해제</button>
+          <button class="primary" onclick="closeChecklist()">닫기</button>
+        </div>
+      </div>
+      <div id="cl-progbar"><div id="cl-progfill"></div></div>
+      <div id="cl-body"></div>
+    </div>
 
     <div id="mode-dock">
       <button id="mode-layout" class="md" onclick="switchMode('layout')">배치도</button>
@@ -3982,6 +4050,12 @@ function isTyping(t) {
     return tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable);
 }
 document.addEventListener('keydown', e => {
+    // 체크리스트가 열려 있으면 ESC 로 닫는다 (다른 단축키보다 우선)
+    const clv = document.getElementById('checklist-view');
+    if (clv && clv.style.display !== 'none') {
+        if (e.key === 'Escape') { e.preventDefault(); closeChecklist(); }
+        return;
+    }
     if (isTyping(e.target)) return;
     if (e.code === 'Space' && !spaceDown) {
         spaceDown = true;
@@ -5105,6 +5179,118 @@ function focusBlock(bid) {
     renderRigPane();
 }
 
+// ───────── 차량 적재 체크리스트 ─────────
+// 부품 블록이 어느 슬롯(렌즈·배터리…)에 붙었는지 이름을 찾는다.
+function checkSlotName(b, scene) {
+    if (!b.parent) return '';
+    const parent = scene.blocks[b.parent];
+    if (!parent) return '';
+    const peq = EQUIPMENT.find(e => e.id === parent.eqId);
+    const slots = (peq && SLOTS[peq.cat]) || [];
+    const s = slots.find(x => x.k === b.slot);
+    return s ? s.n : '';
+}
+// 현재 씬의 모든 블록(루트+부품)을 카테고리별로 묶는다.
+function checklistItems() {
+    const scene = currentScene();
+    const blocks = scene.blocks || {};
+    const groups = {};
+    for (const [bid, b] of Object.entries(blocks)) {
+        const eq = EQUIPMENT.find(e => e.id === b.eqId);
+        const cat = (eq && eq.cat) || 'ETC';
+        (groups[cat] = groups[cat] || []).push({
+            bid, eqId: b.eqId, id: b.eqId,
+            name: dispName(eq),
+            isPart: !!b.parent,
+            slotName: checkSlotName(b, scene),
+        });
+    }
+    const cats = CAT_ORDER.filter(c => groups[c])
+        .concat(Object.keys(groups).filter(c => !CAT_ORDER.includes(c)));
+    return cats.map(cat => {
+        // 루트를 먼저, 그 다음 부품. 같은 종류끼리는 이름순.
+        groups[cat].sort((a, b) =>
+            (a.isPart - b.isPart) || a.name.localeCompare(b.name, 'ko'));
+        return { cat, catName: CAT_NAMES[cat] || cat, icon: CAT_ICONS[cat] || '📦', items: groups[cat] };
+    });
+}
+// 실은 개수 / 전체 개수 (현재 씬 기준)
+function checklistProgress() {
+    const scene = currentScene();
+    const checked = scene.checked || {};
+    let total = 0, done = 0;
+    for (const bid of Object.keys(scene.blocks || {})) { total++; if (checked[bid]) done++; }
+    return { total, done };
+}
+function renderChecklist() {
+    const view = document.getElementById('checklist-view');
+    if (!view) return;
+    const scene = currentScene();
+    const checked = scene.checked || {};
+    const onlyEl = document.getElementById('cl-only');
+    const onlyLeft = !!(onlyEl && onlyEl.checked);
+    document.getElementById('cl-scene').textContent = scene.name || '차량 체크리스트';
+    const { total, done } = checklistProgress();
+    document.getElementById('cl-prog').innerHTML = total
+        ? `실음 <b>${done}</b> / ${total}` + (done === total ? ' · ✅ 전부 실었습니다' : '')
+        : '이 씬에 장비가 없습니다';
+    document.getElementById('cl-progfill').style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    const body = document.getElementById('cl-body');
+    if (!total) {
+        body.innerHTML = '<div class="cl-empty">이 씬(배치도)에 배치된 장비가 없습니다.<br>' +
+            '배치도에서 장비를 놓으면 여기 체크리스트에 나타납니다.</div>';
+        return;
+    }
+    let h = '', shown = 0;
+    for (const g of checklistItems()) {
+        const items = onlyLeft ? g.items.filter(it => !checked[it.bid]) : g.items;
+        if (!items.length) continue;
+        h += `<div class="cl-cat"><div class="cl-cat-h">${g.icon} ${esc(g.catName)} ` +
+             `<span class="cl-cat-n">${g.items.length}</span></div>`;
+        for (const it of items) {
+            shown++;
+            const on = !!checked[it.bid];
+            const tag = it.slotName ? `<span class="cl-part-tag">${esc(it.slotName)}</span>` : '';
+            h += `<div class="cl-row ${on ? 'done' : ''}" onclick="toggleCheck('${it.bid}')">
+                    <div class="cl-box">${on ? '✓' : ''}</div>
+                    <div class="cl-tx"><div class="cl-name">${esc(it.name)}${tag}</div>
+                      <div class="cl-id">${esc(it.id)}</div></div>
+                  </div>`;
+        }
+        h += `</div>`;
+    }
+    if (!shown && onlyLeft) h = '<div class="cl-empty">안 실은 장비가 없습니다. 🎉<br>모두 실었어요.</div>';
+    body.innerHTML = h;
+}
+function openChecklist() {
+    const scene = currentScene();
+    if (!scene.checked) scene.checked = {};
+    const view = document.getElementById('checklist-view');
+    if (view) view.style.display = 'flex';
+    renderChecklist();
+}
+function closeChecklist() {
+    const view = document.getElementById('checklist-view');
+    if (view) view.style.display = 'none';
+}
+function toggleCheck(bid) {
+    const scene = currentScene();
+    if (!scene.blocks || !scene.blocks[bid]) return;   // 사라진 블록이면 무시
+    if (!scene.checked) scene.checked = {};
+    if (scene.checked[bid]) delete scene.checked[bid];
+    else scene.checked[bid] = true;
+    saveState();          // 로그인 시 서버 동기화까지 자동
+    renderChecklist();
+}
+function resetChecklist() {
+    const scene = currentScene();
+    if (!scene.checked || !Object.keys(scene.checked).length) return;
+    if (!confirm('체크 표시를 모두 해제할까요?')) return;
+    scene.checked = {};
+    saveState();
+    renderChecklist();
+}
+
 // ───────── 씬 패널 ─────────
 function renderScenePane() {
     const box = document.getElementById('scene-body');
@@ -5127,6 +5313,13 @@ function renderScenePane() {
           <div class="pane-btns">
             <button onclick="clearScene()">🗑 초기화</button>
             <button class="danger" onclick="deleteScene()">씬 삭제</button></div>
+          <div class="pane-sec">차량 적재</div>
+          <div class="slot-help" style="margin-bottom:8px">
+            이 씬의 장비를 하나씩 체크하며 실을 수 있어요.<br>아이패드로 앱을 열어 확인하기 좋습니다.
+          </div>
+          <div class="pane-btns">
+            <button class="primary" onclick="openChecklist()">✅ 차량 체크리스트</button>
+          </div>
           <div class="pane-sec">외부 공유</div>
           <div class="slot-help" style="margin-bottom:8px">
             링크를 만들면 클라이언트·협력사가 <b>보기만</b> 할 수 있습니다.<br>회수는 로그인 후 언제든 가능합니다.
