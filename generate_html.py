@@ -7355,6 +7355,8 @@ function buildItemMesh(eq, it) {
                 head.add(mo);
                 // 스탠드 요크
                 addMesh(head, new THREE.BoxGeometry(0.05, 0.045, 0.05), M.black(), 0, 0.012, 0);
+            } else if (isMarsM1(eq) && typeof hollylandMarsM1 === 'function') {   // HOLLYLAND Mars M1
+                const mo = hollylandMarsM1(sp); mo.position.y = 0.03; head.add(mo);
             } else {
                 addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, sp.d), M.black(), 0, sp.h / 2 + 0.03, 0);
                 addMesh(head, new THREE.BoxGeometry(sp.w * 0.9, sp.h * 0.82, 0.004),
@@ -7368,6 +7370,12 @@ function buildItemMesh(eq, it) {
         mo.position.y = h + 0.05;
         mo.rotation.y = yaw;
         grp.add(mo);
+    } else if (typeof seiseX1Reel === 'function' && isCableReel(eq)) {   // ── 전선릴 (SEISE X1) ──
+        const reel = seiseX1Reel(sp); reel.position.y = h; reel.rotation.y = yaw; grp.add(reel);
+    } else if (typeof hollylandMars400s === 'function' && isMars400(eq)) {  // ── Mars 400s 송수신기 ──
+        const mo = hollylandMars400s(sp); mo.position.y = h; mo.rotation.y = yaw; grp.add(mo);
+    } else if (typeof gripArmSet === 'function' && isGripArmSet(eq)) {   // ── 그립암 세트 (VL-40GA) ──
+        const arm = gripArmSet(sp); arm.position.y = h + 0.06; arm.rotation.y = yaw; grp.add(arm);
     } else {                                      // ── 바닥 물건 ──
         const body = addMesh(grp, new THREE.BoxGeometry(sp.w, sp.h, sp.d),
             mat(0x2b3037, { roughness: 0.75, metalness: 0.2 }), 0, h + sp.h / 2, 0);

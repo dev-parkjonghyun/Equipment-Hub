@@ -6,6 +6,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
  isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
  isPavoTube,pavoTubeII6c,nanliteFc500c,isInsta360,insta360X3,djiRs4Pro,
+ isCableReel,isMarsM1,isMars400,isGripArmSet,seiseX1Reel,hollylandMarsM1,hollylandMars400s,gripArmSet,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -14,6 +15,7 @@ const nodes=o=>{let n=0;o.traverse(m=>{if(m.isMesh)n++;});return n;};
 const dim=o=>{o.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(o);
   return {x:b.max.x-b.min.x, y:b.max.y-b.min.y, z:b.max.z-b.min.z};};
 const build=id=>A.buildItemMesh(A.EQ().find(e=>e.id===id),{eqId:id,x:0,y:0,h3:1.6,rot:0});
+const near=(a,b,e=0.002)=>Math.abs(a-b)<=e;
 
 console.log('=== 1. 인식(제품 매칭) ===');
 t('Forza 500 인식(LIT-001)', A.isForza500({id:'LIT-001'}));
@@ -129,6 +131,30 @@ t('MOD-008 긴 소프트박스 SPECS', (()=>{const s=A.specOf('MOD-008');return 
 t('MOD-009 납작 플랙 SPECS', (()=>{const s=A.specOf('MOD-009');return s.kind==='flag' && s.d<=0.05;})());
 t('MOD-008 메시 생성', nodes(build('MOD-008'))>=1);
 t('MOD-009 메시 생성(납작)', (()=>{const d=dim(build('MOD-009'));return nodes(build('MOD-009'))>=1 && d.z < d.x && d.z < d.y;})());
+
+console.log('=== 11. 신규 자산 모델 (전선릴·Mars·그립암, 자산번호 일치) ===');
+// 인식
+t('전선릴 인식(PWR-001/002/003)', A.isCableReel({id:'PWR-001'}) && A.isCableReel({id:'PWR-003'}) && A.isCableReel({product:'SEISE 전선릴'}));
+t('Mars M1 인식(MON-002)', A.isMarsM1({id:'MON-002'}) && A.isMarsM1({product:'HOLLYLAND Mars M1'}));
+t('Mars 400s 인식(ACC-005)', A.isMars400({id:'ACC-005'}) && A.isMars400({product:'Mars 400S PRO'}));
+t('그립암 세트 인식(ACC-001/002/003)', A.isGripArmSet({id:'ACC-001'}) && A.isGripArmSet({id:'ACC-003'}));
+// SPECS 등록(서버 덮어쓰기 방어 대상)
+t('PWR-001 색상 SPECS', (()=>{const s=A.specOf('PWR-001');return s.color==='blue' && s.outlets===4;})());
+t('PWR-003 노랑', A.specOf('PWR-003').color==='yellow');
+t('MON-002 실측 SPECS(152×96×40)', (()=>{const s=A.specOf('MON-002');return near(s.w,0.152)&&near(s.h,0.096);})());
+t('ACC-005 SPECS', (()=>{const s=A.specOf('ACC-005');return near(s.w,0.112);})());
+t('ACC-001 그립암 로드 1m', (()=>{const s=A.specOf('ACC-001');return near(s.rodLen,1.016);})());
+// 빌더 메시
+t('전선릴 빌더 메시 다수', nodes(A.seiseX1Reel(A.specOf('PWR-001')))>=5, nodes(A.seiseX1Reel(A.specOf('PWR-001'))));
+t('Mars M1 빌더 메시 다수', nodes(A.hollylandMarsM1(A.specOf('MON-002')))>=5);
+t('Mars 400s 빌더 메시 다수', nodes(A.hollylandMars400s(A.specOf('ACC-005')))>=5);
+t('그립암 세트 빌더 메시 다수', nodes(A.gripArmSet(A.specOf('ACC-001')))>=4);
+{ const d=dim(A.gripArmSet(A.specOf('ACC-001'))); t('그립암은 가로로 1m 이상', d.x>0.9, JSON.stringify(d)); }
+// dispatch 연결(일반 박스 대신 전용)
+t('PWR-001 dispatch 전용 모델', nodes(build('PWR-001'))>=5);
+t('MON-002 dispatch 전용 모델', nodes(build('MON-002'))>=5);
+t('ACC-005 dispatch 전용 모델', nodes(build('ACC-005'))>=5);
+t('ACC-001 dispatch 전용 모델', nodes(build('ACC-001'))>=4);
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
