@@ -1,7 +1,8 @@
 const {APP,SUPA}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
-const H=makeHarness(`switchMode,sbCfg,sbReady,shareId,sceneForShare,createShareLink,copyShareLink,
- closeShare,revokeShare,loadSharedScene,isViewOnly,
+const H=makeHarness(`switchMode,sbCfg,sbReady,shareId,sceneForShare,createShareLink,shareCurrentScene,copyShareLink,
+ closeShare,revokeShare,loadSharedScene,isViewOnly,saveState,workspaceForServer,updateSceneChip,
+ setVOoff:()=>{viewOnly=false},
  pickGearPhoto,sendGearPhoto,renderPhotoResult,photoChecked,photoToSet,photoToLayout,closePhoto,
  addBlockAt,setEq,startFloorDrag,startFreeDrag,renderScenePane,openPane,addSubject,syncFromLayout,
  F:F,cur:currentScene,st:()=>state,EQ:()=>EQUIPMENT,setVO:v=>{viewOnly=v},
@@ -67,46 +68,75 @@ let sent=null;
 // 브라우저는 빈 본문에 .json() 을 부르면 예외를 던진다 → 그대로 재현해 회귀를 막는다.
 // boot() 의 장비 로드 GET 과 로그인 시 작업공간 동기화 POST(gear_workspaces)는 무시하고,
 // 공유(gear_scenes) 쓰기(POST/PATCH)만 기록한다.
-H.ctx.fetch=async(u,o)=>{ if(o&&(o.method==='POST'||o.method==='PATCH')&&u.includes('/rest/v1/gear_scenes')) sent={u,o};
+let sends=[];
+H.ctx.fetch=async(u,o)=>{ if(o&&(o.method==='POST'||o.method==='PATCH')&&u.includes('/rest/v1/gear_scenes')){ sent={u,o}; sends.push({u,o}); }
   return {ok:true,status:201,
   json:async()=>{throw new Error('Unexpected end of JSON input')},text:async()=>''} ; };
+const lastMethod=m=>[...sends].reverse().find(s=>s.o.method===m);
+const flush=()=>new Promise(r=>setImmediate(r));   // saveState 의 비동기 자동반영을 흘려보냄
 H.ctx.location={origin:'https://ehstudio.github.io',pathname:'/gear/',search:''};
 H.ctx.Blob=function(a){ this.size=JSON.stringify(a).length; };
 H.ctx.navigator={clipboard:{writeText(){}},userAgent:'test'};
-await A.createShareLink();
-t('POST 요청', sent && sent.o.method==='POST');
-t('gear_scenes 테이블로', sent.u.includes('/rest/v1/gear_scenes'));
-t('apikey 헤더 전송', !!sent.o.headers.apikey);
-t('새 키는 Authorization 안 붙임', sent.o.headers.apikey.startsWith('sb_')
-   ? sent.o.headers.Authorization===undefined : true,
-   JSON.stringify(Object.keys(sent.o.headers)));
-{ const b=JSON.parse(sent.o.body);
+// 공개 공유는 로그인 필요 → 먼저 로그인 상태로
+A.st().auth={access:'ACCESS',email:'dev@ehstudio.net',expires:Date.now()+3600000};
+sends=[];
+await A.shareCurrentScene(); await flush();
+const post=lastMethod('POST');
+t('POST(upsert) 요청', !!post);
+t('gear_scenes 테이블로', post.u.includes('/rest/v1/gear_scenes'));
+t('upsert 헤더(merge-duplicates)', /merge-duplicates/.test(post.o.headers.Prefer||''));
+t('apikey 헤더 전송', !!post.o.headers.apikey);
+{ const b=JSON.parse(post.o.body);
   t('만료일 설정', !!b.expires_at, b.expires_at);
   t('공개 플래그', b.is_public===true);
   t('id 포함', b.id && b.id.length===12); }
 t('링크 표시', el('share-link').value.includes('?s='), el('share-link').value);
 t('링크 형태', /^https:\/\/ehstudio\.github\.io\/gear\/\?s=[a-z2-9]{12}$/.test(el('share-link').value));
 t('만료 안내', el('share-meta').textContent.includes('만료'));
-t('보낸 링크 기록', (A.st().shares||[]).length===1);
+t('씬에 shareId 저장(씬당 1개)', !!A.cur().shareId);
 t('보기 전용 명시', el('share-meta').textContent.includes('보기 전용'));
+const sid=A.cur().shareId;
+
+console.log('=== 5b. 같은 씬 재공유 = 같은 링크(1개) ===');
+sends=[];
+await A.shareCurrentScene(); await flush();
+const post2=lastMethod('POST');
+t('shareId 그대로', A.cur().shareId===sid);
+t('같은 id 로 upsert', post2 && JSON.parse(post2.o.body).id===sid);
+
+console.log('=== 5c. 배치 수정 시 자동 반영(공유 씬) ===');
+sends=[];
+A.addBlockAt('MON-001',300,300);   // 편집 → saveState → scheduleShareSync
+A.saveState(); await flush();
+const patch=lastMethod('PATCH');
+t('공유 씬 자동 PATCH', patch && patch.u.includes('id=eq.'+sid));
+t('최신 배치를 담아 보냄', patch && JSON.parse(patch.o.body).data && !!JSON.parse(patch.o.body).data.blocks);
+
+console.log('=== 5d. 기기 동기화(shareId 가 작업공간에 포함) ===');
+t('workspaceForServer.scenes 에 shareId', (()=>{const w=A.workspaceForServer();return Object.values(w.scenes).some(s=>s.shareId===sid);})());
 
 console.log('=== 6. 링크 회수 ===');
-const sid=A.st().shares[0].id;
 // 회수는 로그인한 스튜디오 계정만 가능(서버가 익명 UPDATE 를 막음).
-// 로그아웃 상태에선 PATCH 가 아예 안 나가야 한다.
 sent=null; A.st().auth={};
 await A.revokeShare(sid);
 t('로그아웃이면 회수 차단', sent===null);
-// 로그인하면 정상 회수
 A.st().auth={access:'ACCESS',email:'dev@ehstudio.net',expires:Date.now()+3600000};
 sent=null;
 await A.revokeShare(sid);
 t('PATCH 요청', sent && sent.o.method==='PATCH');
 t('해당 씬만', sent.u.includes('id=eq.'+sid));
 t('공개 해제', JSON.parse(sent.o.body).is_public===false);
-t('목록에 회수 표시', A.st().shares[0].dead===true);
+t('회수하면 씬 shareId 제거', !A.cur().shareId);
+
+console.log('=== 6b. 툴바 공유 버튼 · 자동반영 코드 ===');
+t('상단 툴바에 공유 버튼', html.includes('id="share-btn"') && html.includes('onclick="shareCurrentScene()"'));
+t('공유 중 상태 표시', html.includes("sb.textContent = shared ? '🔗 공유 중'"));
+t('모달에 자동 반영 안내', html.includes('자동 반영'));
+t('saveState 가 공유 씬 자동 반영 예약', html.includes('scheduleShareSync(state.currentScene)'));
+t('공유 씬 PATCH 는 만료 안 건드림', html.includes('body: JSON.stringify({ name: sc.name, data: sceneForShare(sc) })'));
 
 console.log('=== 7. 읽기 전용 모드 ===');
+A.setVOoff();
 t('평상시엔 편집 가능', A.isViewOnly()===false);
 A.setVO(true);
 t('읽기 전용 진입', A.isViewOnly()===true);

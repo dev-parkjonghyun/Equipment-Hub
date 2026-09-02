@@ -617,6 +617,10 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   padding:5px 11px;font-size:11.5px;border-radius:var(--r-m);
   display:inline-flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:none}
 #auth-chip:hover{border-color:var(--acc);color:var(--tx-0)}
+#share-btn{background:var(--bg-2);border:1px solid var(--line-2);color:var(--tx-1);
+  padding:5px 11px;font-size:11.5px;border-radius:var(--r-m);white-space:nowrap;box-shadow:none;flex:0 0 auto}
+#share-btn:hover{border-color:var(--acc);color:var(--tx-0)}
+#share-btn.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
 .ac-dot{width:6px;height:6px;border-radius:50%;background:var(--tx-3);flex:none}
 .ac-dot.on{background:var(--ok);box-shadow:0 0 7px var(--ok)}
 .lg-err{font-size:11.5px;color:var(--danger);margin-top:10px;min-height:16px;line-height:1.5}
@@ -891,12 +895,15 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 
     <div id="share-modal" class="modal">
       <div class="mbox">
-        <div class="mhead">🔗 공유 링크가 만들어졌습니다</div>
-        <p class="msub">받은 사람은 <b>보기만</b> 할 수 있고, 장비를 옮기거나 지울 수 없습니다.</p>
+        <div class="mhead">🔗 이 씬의 공유 링크</div>
+        <p class="msub">받은 사람은 <b>보기만</b> 할 수 있습니다. 씬마다 링크는 <b>하나</b>예요.<br>
+          ✏️ 배치도를 수정하면 이 링크에 <b>자동 반영</b>됩니다 (상대방은 새로고침 시 최신).</p>
         <div class="mrow"><input id="share-link" readonly onclick="this.select()">
           <button class="primary" onclick="copyShareLink()">복사</button></div>
         <div class="mmeta" id="share-meta"></div>
-        <div class="mbtns"><button onclick="closeShare()">닫기</button></div>
+        <div class="mbtns">
+          <button id="share-revoke" class="danger" style="display:none">링크 회수</button>
+          <button onclick="closeShare()">닫기</button></div>
       </div>
     </div>
 
@@ -929,6 +936,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
             <select id="scene-select" style="display:none"></select>
             <span id="scene-chip"></span>
             <button id="auth-chip" style="display:none"></button>
+            <button id="share-btn" onclick="shareCurrentScene()"
+                    title="이 배치를 보기 전용 링크로 공유합니다 (씬당 1개, 수정 자동 반영)">🔗 공유</button>
             <div class="divider"></div>
             <span id="list-tools">
                 <input id="lq" type="search" placeholder="이름 · 자산번호 · 별칭 검색"
@@ -1259,7 +1268,12 @@ function saveState() {
         alert('브라우저 저장 공간이 부족합니다.\n배경 도면을 제거하거나 불필요한 씬을 삭제한 뒤 다시 시도해주세요.');
     }
     // 로그인했으면 서버(스튜디오 공용 작업공간)에도 저장 — 다른 기기에서 이어서 작업
-    if (typeof isLoggedIn === 'function' && isLoggedIn()) scheduleWorkspaceSync();
+    if (typeof isLoggedIn === 'function' && isLoggedIn()) {
+        scheduleWorkspaceSync();
+        // 현재 씬에 공유 링크가 있으면 그 링크도 최신 배치로 자동 갱신
+        const cur = currentScene();
+        if (cur && cur.shareId) scheduleShareSync(state.currentScene);
+    }
 }
 // 현재 모드에서 이미 배치된 장비 id 집합
 function placedEqSet() {
@@ -2814,6 +2828,12 @@ function syncConfineBtn() {
 function updateSceneChip() {
     const chip = document.getElementById('scene-chip');
     if (chip) chip.innerHTML = `<span class="sc-k">씬</span> ${esc(currentScene().name)}`;
+    const sb = document.getElementById('share-btn');
+    if (sb) {
+        const shared = !!currentScene().shareId;
+        sb.classList.toggle('on', shared);
+        sb.textContent = shared ? '🔗 공유 중' : '🔗 공유';
+    }
 }
 function switchMode(m) {
     const scene = currentScene();
@@ -2915,8 +2935,8 @@ function shareId() {
 // 공유용으로 담을 것만 추린다 (편집 상태·설정은 뺀다)
 // 외부(감독님)에게 보내므로, "현재 씬에 실제로 놓인 장비"만 담는다.
 // 씬과 무관한 재고의 보관위치·상태·메모(eqEdits)나 다른 세트는 내보내지 않는다.
-function sceneForShare() {
-    const sc = currentScene();
+function sceneForShare(sc) {
+    sc = sc || currentScene();
     const used = new Set([
         ...Object.values(sc.blocks || {}).map(b => b.eqId),
         ...Object.values((sc.floor && sc.floor.items) || {}).map(i => i.eqId),
@@ -2939,21 +2959,27 @@ function sceneForShare() {
     };
 }
 const SHARE_DAYS = [7, 30, 90];
-async function createShareLink() {
+function shareUrlOf(id) { return location.origin + location.pathname + '?s=' + id; }
+// 씬마다 공유 링크 1개. 이미 있으면 그 링크를 재사용(같은 행을 갱신)한다.
+async function shareCurrentScene() {
+    if (!requireLogin('공유 링크')) return;
     const sc = currentScene();
-    const days = SHARE_DAYS[Math.max(0, SHARE_DAYS.indexOf(+(state.shareDays || 30)))] || 30;
-    const id = shareId();
-    const payload = sceneForShare();
+    const days = SHARE_DAYS[Math.max(0, SHARE_DAYS.indexOf(+(sc.shareDays || state.shareDays || 30)))] || 30;
+    const id = sc.shareId || shareId();
+    const reuse = !!sc.shareId;
+    const payload = sceneForShare(sc);
     const bytes = new Blob([JSON.stringify(payload)]).size;
     if (bytes > 2.8 * 1024 * 1024) {
         alert(`씬이 너무 큽니다 (${(bytes / 1024 / 1024).toFixed(1)}MB).\n배경 도면을 지우거나 더 작은 사진으로 바꿔주세요.`);
         return;
     }
-    setStatus('공유 링크 만드는 중…');
+    setStatus(reuse ? '공유 링크 갱신 중…' : '공유 링크 만드는 중…');
     try {
+        if (!(await ensureAuth())) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+        // upsert — 같은 id 면 갱신, 없으면 생성 → 씬당 행 1개 유지 + 만료 갱신
         await sbFetch('/rest/v1/gear_scenes', {
             method: 'POST',
-            headers: { Prefer: 'return=minimal' },
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
             body: JSON.stringify({
                 id, name: sc.name, data: payload,
                 is_public: true,
@@ -2965,25 +2991,27 @@ async function createShareLink() {
         setStatus('공유 실패');
         return;
     }
-    const link = location.origin + location.pathname + '?s=' + id;
-    state.shares = state.shares || [];
-    state.shares.unshift({ id, name: sc.name, at: Date.now(), days, bytes });
-    state.shares = state.shares.slice(0, 20);
+    sc.shareId = id; sc.shareAt = Date.now(); sc.shareDays = days;
     saveState();
-    showShareResult(link, days, bytes);
+    showShareResult(shareUrlOf(id), days, bytes, id);
+    updateSceneChip();
     renderScenePane();
 }
+// 이전 이름 호환
+function createShareLink() { return shareCurrentScene(); }
 // 날짜+시간 표기 (예: "8/12 오후 2:30")
 function fmtShareTime(t) {
     return new Date(t).toLocaleString('ko-KR',
         { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
-function showShareResult(link, days, bytes) {
+function showShareResult(link, days, bytes, id) {
     const box = document.getElementById('share-modal');
     document.getElementById('share-link').value = link;
     const expiry = fmtShareTime(Date.now() + days * 864e5);
     document.getElementById('share-meta').textContent =
         `${days}일 후 만료 (${expiry}까지) · ${(bytes / 1024).toFixed(0)}KB · 보기 전용`;
+    const rv = document.getElementById('share-revoke');
+    if (rv) { rv.style.display = id ? 'inline-flex' : 'none'; rv.onclick = id ? () => revokeShare(id) : null; }
     box.classList.add('on');
 }
 function copyShareLink() {
@@ -2991,6 +3019,11 @@ function copyShareLink() {
     el.select();
     if (navigator.clipboard) navigator.clipboard.writeText(el.value);
     else document.execCommand('copy');
+    setStatus('링크를 복사했습니다');
+}
+function copyShareUrl(id) {
+    const url = shareUrlOf(id);
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
     setStatus('링크를 복사했습니다');
 }
 function closeShare() { document.getElementById('share-modal').classList.remove('on'); }
@@ -3006,8 +3039,11 @@ async function revokeShare(id) {
             body: JSON.stringify({ is_public: false }),
         });
     } catch (e) { alert('회수하지 못했습니다.\n' + e.message); return; }
-    state.shares = (state.shares || []).map(x => x.id === id ? Object.assign({}, x, { dead: true }) : x);
-    saveState(); renderScenePane();
+    // 이 링크를 쓰던 씬에서 shareId 제거 → 다음에 다시 누르면 새 링크가 만들어진다
+    for (const s of Object.values(state.scenes)) if (s.shareId === id) { delete s.shareId; delete s.shareAt; delete s.shareDays; }
+    state.shares = (state.shares || []).filter(x => x.id !== id);   // 옛 목록 정리
+    closeShare();
+    saveState(); renderScenePane(); updateSceneChip();
     setStatus('링크를 회수했습니다');
 }
 
@@ -3232,6 +3268,25 @@ let _wsTimer = null;
 function scheduleWorkspaceSync() {          // 저장 폭주를 막으려 1.5초 디바운스
     clearTimeout(_wsTimer);
     _wsTimer = setTimeout(() => { pushWorkspace(); }, 1500);
+}
+// 공유 링크가 있는 씬을 수정하면, 그 링크(gear_scenes)를 최신 배치로 자동 갱신한다.
+let _shareTimer = null;
+function scheduleShareSync(key) {
+    clearTimeout(_shareTimer);
+    _shareTimer = setTimeout(() => { pushSharedScene(key); }, 2000);
+}
+async function pushSharedScene(key) {
+    if (!isLoggedIn() || viewOnly) return;
+    const sc = state.scenes[key];
+    if (!sc || !sc.shareId) return;
+    try {
+        if (!(await ensureAuth())) return;
+        await sbFetch(`/rest/v1/gear_scenes?id=eq.${encodeURIComponent(sc.shareId)}`, {
+            method: 'PATCH',
+            headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify({ name: sc.name, data: sceneForShare(sc) }),   // 만료는 안 건드림
+        });
+    } catch (e) { console.warn('공유 링크 자동 반영 실패 — 다음 저장 때 재시도', e); }
 }
 async function pushWorkspace() {
     if (!isLoggedIn() || viewOnly) return;
@@ -5418,20 +5473,24 @@ function renderScenePane() {
           </div>
           <div class="pane-sec">외부 공유</div>
           <div class="slot-help" style="margin-bottom:8px">
-            링크를 만들면 클라이언트·협력사가 <b>보기만</b> 할 수 있습니다.<br>회수는 로그인 후 언제든 가능합니다.
+            씬마다 링크는 <b>하나</b>입니다. 배치를 수정하면 링크에 <b>자동 반영</b>돼요.<br>회수는 로그인 후 언제든 가능합니다.
           </div>
           <div class="pane-btns">
-            <button class="primary" onclick="createShareLink()">🔗 공유 링크 만들기</button>
+            <button class="primary" onclick="shareCurrentScene()">🔗 이 씬 공유하기</button>
           </div>
-          ${(state.shares || []).length ? `<div class="pane-sec">보낸 링크</div>` +
-            (state.shares || []).slice(0, 6).map(x => `
-              <div class="share-row ${x.dead ? 'dead' : ''}">
-                <span class="sr-n">${esc(x.name)}</span>
-                <span class="sr-d">${fmtShareTime(x.at)}${x.days ? ` · ${x.days}일` : ''}</span>
-                ${x.dead ? '<span class="sr-d">회수됨</span>'
-                  : `<button class="danger" style="padding:3px 8px;font-size:10px"
-                       onclick="revokeShare('${x.id}')">회수</button>`}
-              </div>`).join('') : ''}
+          ${(() => {
+            const shared = Object.entries(state.scenes).filter(([, s]) => s.shareId);
+            return shared.length ? `<div class="pane-sec">공유 중인 씬</div>` +
+              shared.map(([, s]) => `
+              <div class="share-row">
+                <span class="sr-n">${esc(s.name)}</span>
+                <span class="sr-d">${s.shareAt ? fmtShareTime(s.shareAt) : ''}${s.shareDays ? ` · ${s.shareDays}일` : ''}</span>
+                <button style="padding:3px 8px;font-size:10px"
+                    onclick="copyShareUrl('${s.shareId}')">복사</button>
+                <button class="danger" style="padding:3px 8px;font-size:10px"
+                    onclick="revokeShare('${s.shareId}')">회수</button>
+              </div>`).join('') : '';
+          })()}
           <div class="pane-sec">저장</div>
           <div class="slot-help">
             ${isLoggedIn()
