@@ -5,7 +5,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
  isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
- isPavoTube,pavoTubeMesh,
+ isPavoTube,pavoTubeII6c,nanliteFc500c,isInsta360,insta360X3,djiRs4Pro,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -25,10 +25,11 @@ t('프로젝션(MOD-004)', A.isProjection({id:'MOD-004'}));
 t('PJ-FZ60 이름 매칭', A.isProjection({product:'NANLITE PJ-FZ60'}));
 t('일반 소프트박스는 프로젝션 아님', !A.isProjection({id:'MOD-001',product:'Softbox 60b'}));
 
-console.log('=== 2. COB 헤드(Forza 500) ===');
-const cob=A.cobHeadMesh(A.specOf('LIT-001'));
-t('메시 다수(디테일)', nodes(cob)>=35, nodes(cob));
+console.log('=== 2. Forza 500 = FC-500C COB 헤드 ===');
+const cob=A.nanliteFc500c(A.specOf('LIT-001'));
+t('메시 다수(디테일)', nodes(cob)>=8, nodes(cob));
 { const d=dim(cob); t('앞뒤(배럴) 길이가 있음', d.z>0.15, JSON.stringify(d)); }
+t('요크 포함(세로로도 큼)', (()=>{const d=dim(cob);return d.y>0.30;})(), JSON.stringify(dim(cob)));
 
 console.log('=== 3. 랜턴 소프트박스 ===');
 const lan=A.lanternMesh(A.specOf('MOD-003'));
@@ -105,16 +106,23 @@ t('V1은 작음(플래시)', (()=>{const d=dim(A.godoxV1(A.specOf('LIT-010')));r
 t('LIT-003/004/010 dispatch에 전용 모델 연결', nodes(build('LIT-003'))>=1 && nodes(build('LIT-004'))>=1 && nodes(build('LIT-010'))>=1);
 t('MOD-006 dispatch 연결', nodes(build('MOD-006'))>=1);
 
-console.log('=== 9. PavoTube(LIT-007/008) 전용 튜브 ===');
+console.log('=== 9. PavoTube II 6C (LIT-007/008) 전용 튜브 ===');
 t('PavoTube 인식(LIT-007/008)', A.isPavoTube({id:'LIT-007'}) && A.isPavoTube({id:'LIT-008'}));
 t('PavoSlim 과 구분', !A.isPavoTube({id:'LIT-003'}) && !A.isPavoSlim({id:'LIT-007'}));
 t('제품명으로도(PavoTube)', A.isPavoTube({product:'NANLITE PavoTube'}));
-t('PavoTube 얇은 튜브 SPECS', (()=>{const s=A.specOf('LIT-007');return s.d>=0.4 && s.w<=0.04;})());
-t('빌더가 메시 생성', nodes(A.pavoTubeMesh(A.specOf('LIT-007')))>=1);
-{ const d=dim(A.pavoTubeMesh(A.specOf('LIT-007')));
-  t('한 축으로 길고 얇음(튜브)', d.y > d.x*3 && d.y > d.z*3, JSON.stringify(d)); }
-t('dispatch 연결(LIT-007/008이 일반형 대신 튜브)', nodes(build('LIT-007'))>=1 && nodes(build('LIT-008'))>=1);
-{ const d=dim(build('LIT-007')); t('배치된 PavoTube도 세로로 긺', d.y > d.x*2, JSON.stringify(d)); }
+t('PavoTube II 6C 실측 SPECS(250×38×38)', (()=>{const s=A.specOf('LIT-007');return s.len===0.250 && s.h===0.038 && s.src==='spec';})());
+t('빌더가 메시 생성', nodes(A.pavoTubeII6c(A.specOf('LIT-007')))>=3);
+{ const d=dim(A.pavoTubeII6c(A.specOf('LIT-007')));
+  t('가로(X)로 길고 얇음(튜브)', d.x > d.y*3 && d.x > d.z*3, JSON.stringify(d)); }
+t('dispatch 연결(LIT-007/008이 일반형 대신 튜브)', nodes(build('LIT-007'))>=3 && nodes(build('LIT-008'))>=3);
+
+console.log('=== 9b. 실모델 매핑 (짐벌·Insta360) ===');
+t('DJI RS4 Pro 짐벌 SPECS(plate 좌표)', (()=>{const s=A.specOf('GIM-001');return Array.isArray(s.plate) && s.kind==='gimbal';})());
+t('짐벌 빌더 메시 다수', nodes(A.djiRs4Pro(A.specOf('GIM-001')))>=6, nodes(A.djiRs4Pro(A.specOf('GIM-001'))));
+t('Insta360 인식(제품명/ CAM-006)', A.isInsta360({id:'CAM-006'}) && A.isInsta360({product:'Insta360 X3'}));
+t('Sony 카메라는 Insta360 아님', !A.isInsta360({id:'CAM-003',product:'Sony a7m4'}));
+t('Insta360 빌더 메시 생성', nodes(A.insta360X3(A.specOf('CAM-006')))>=3);
+{ const d=dim(A.insta360X3(A.specOf('CAM-006'))); t('세로로 긴 바디(360캠)', d.y>d.x && d.y>d.z, JSON.stringify(d)); }
 
 console.log('=== 10. MOD-008/009 형태 보정 ===');
 t('MOD-008 긴 소프트박스 SPECS', (()=>{const s=A.specOf('MOD-008');return s.kind==='boxSoft' && s.h>s.w;})());

@@ -7061,6 +7061,10 @@ function buildItemMesh(eq, it) {
             riser(grp, h, 3, 0.019);
             spigot(grp, h);
         }
+    } else if (eq.cat === 'GIM' && typeof djiRs4Pro === 'function') {   // ── 짐벌 단독 (DJI RS4 Pro) ──
+        const gm = djiRs4Pro(specOf('GIM-001'));
+        gm.rotation.y = yaw;
+        grp.add(gm);
     } else if (MOUNTED[eq.cat] !== undefined) {   // ── 스탠드 위에 올라가는 장비 ──
         const standH = h;
         // 조립체에 실제 지지대가 있으면 그 규격으로 다리를 만든다
@@ -7068,23 +7072,14 @@ function buildItemMesh(eq, it) {
         if (supId) {
             const ssp = specOf(supId);
             const isGim = supId.startsWith('GIM');
-            if (isGim) {                          // 짐벌(DJI RS) = 손잡이 + 3축 모터 요람
-                const gy = standH;                // 카메라가 얹히는 높이
-                // 손잡이(아래) + 그립
-                addMesh(grp, new THREE.CylinderGeometry(0.03, 0.034, 0.16, 14), M.black(), 0, gy - 0.42, 0);
-                addMesh(grp, new THREE.CylinderGeometry(0.022, 0.022, 0.20, 12), M.aluDk(), 0, gy - 0.26, 0);
-                // 틸트(팬) 모터 — 손잡이 위 세로축
-                addMesh(grp, new THREE.CylinderGeometry(0.03, 0.03, 0.06, 16), M.knob(), 0, gy - 0.15, 0);
-                // 롤 암(수평으로 뻗어 카메라 옆을 감쌈) + 롤 모터
-                const arm = addMesh(grp, new THREE.BoxGeometry(0.024, 0.024, 0.17), M.aluDk(), 0, gy - 0.10, 0.06);
-                addMesh(grp, new THREE.CylinderGeometry(0.028, 0.028, 0.05, 16), M.knob(), 0.10, gy - 0.02, 0.06)
-                    .rotation.z = Math.PI / 2;
-                // 틸트 암(위로 올라와 카메라 밑을 받침) + 틸트 모터
-                addMesh(grp, new THREE.BoxGeometry(0.022, 0.14, 0.022), M.aluDk(), 0.10, gy - 0.06, 0.02);
-                addMesh(grp, new THREE.CylinderGeometry(0.026, 0.026, 0.05, 16), M.knob(), 0.04, gy, 0.02)
-                    .rotation.z = Math.PI / 2;
-                // 카메라 받침 플레이트
-                addMesh(grp, new THREE.BoxGeometry(0.075, 0.012, 0.09), M.black(), 0, gy - 0.006, 0);
+            if (isGim && typeof djiRs4Pro === 'function') {   // DJI RS4 Pro 짐벌 — plate 상면을 카메라 높이에 맞춤
+                const gsp = specOf('GIM-001');
+                const pl = gsp.plate || [0, 0.3915, 0];
+                const gm = djiRs4Pro(gsp);
+                gm.position.set(-pl[0], standH - pl[1], -pl[2]);   // 퀵릴리즈 플레이트가 (0, standH, 0) 에 오도록
+                grp.add(gm);
+            } else if (isGim) {                   // 폴백(짐벌 모델 없을 때)
+                addMesh(grp, new THREE.CylinderGeometry(0.03, 0.034, 0.20, 12), M.black(), 0, standH - 0.2, 0);
             } else {
                 const supEq = EQUIPMENT.find(e => e.id === supId) || { id: supId };
                 const isTrp = supId.startsWith('TRP');
@@ -7163,11 +7158,15 @@ function buildItemMesh(eq, it) {
             } else if (isV1Flash(eq)) {                   // Godox V1 라운드헤드 플래시 (발이 스탠드 상단)
                 head.add(godoxV1(sp));
                 modY = sp.yPivot; modZ = sp.zHeadFront;
-            } else if (isPavoTube(eq)) {                  // NANLITE PavoTube (길고 얇은 발광 튜브)
-                const ph = pavoTubeMesh(sp);
-                ph.position.y = (sp.d || 0.53) * 0.5;     // 튜브 아랫끝을 스탠드 상단에 두고 위로 세움
+            } else if (isPavoTube(eq)) {                  // NANLITE PavoTube II 6C (가로 튜브, +Z 발광)
+                const ph = pavoTubeII6c(sp);
+                head.add(ph);                             // 원점 중심, 스탠드 상단(standH) 높이에 가로로
+                modY = 0; modZ = sp.d * 0.5;
+            } else if (isForza500(eq) && typeof nanliteFc500c === 'function') {   // Forza 500 = FC-500C COB (요크 포함)
+                const ph = nanliteFc500c(sp);
+                ph.position.y = sp.yokeDrop;
                 head.add(ph);
-                modY = (sp.d || 0.53) * 0.5; modZ = (sp.tubeR || 0.014) * 2;
+                modY = sp.yokeDrop; modZ = sp.zFront;
             } else {
                 // 요크(U 브래킷)
                 const yw = sp.w * 0.78;
@@ -7176,11 +7175,7 @@ function buildItemMesh(eq, it) {
                         s * yw, sp.h * 0.5 + 0.03, 0);
                 });
                 addMesh(head, new THREE.BoxGeometry(yw * 2, 0.018, 0.035), M.aluDk(), 0, 0.035, 0);
-                if (isForza500(eq)) {
-                    const cob = cobHeadMesh(sp);
-                    cob.position.y = sp.h * 0.55 + 0.03;
-                    head.add(cob);
-                } else {
+                {
                     // 헤드 본체
                     const body = addMesh(head, new THREE.CylinderGeometry(sp.w * 0.52, sp.w * 0.52, sp.d * 0.72, 16),
                         M.black(), 0, sp.h * 0.55 + 0.03, 0);
@@ -7274,6 +7269,8 @@ function buildItemMesh(eq, it) {
                 sb.position.set(0, sp.h * 0.5, 0);
                 head.add(sb);
             }
+        } else if (eq.cat === 'CAM' && isInsta360(eq) && typeof insta360X3 === 'function') {
+            head.add(insta360X3(sp));            // INSTA360 X3 360캠 (바닥면 원점 → head 높이에 얹힘)
         } else if (eq.cat === 'CAM') {
             // 바디 + 렌즈 + 후드 + 상단 핸들
             addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, sp.d), M.black(), 0, sp.h / 2 + 0.03, 0);

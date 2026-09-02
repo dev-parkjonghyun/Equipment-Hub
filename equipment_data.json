@@ -55,6 +55,17 @@
     "status": "정상"
   },
   {
+    "id": "CAM-006",
+    "nick": "",
+    "cat": "CAM",
+    "catLabel": "카메라 본체(CAM)",
+    "sub": "360 액션캠",
+    "product": "Insta360 X3",
+    "brand": "Insta360",
+    "model": "X3",
+    "status": "정상"
+  },
+  {
     "id": "TRP-001",
     "nick": "",
     "cat": "TRP",

@@ -1154,31 +1154,247 @@ function nanlinkBoxWsTb1(sp) {
     return g;
 }
 
-// ── pavoTubeMesh — NANLITE PavoTube (길고 얇은 발광 튜브) → LIT-007/008 ──
-// 원점 중심, Y축으로 세운 튜브. 발광면(M.diff) + 양끝 다크 캡 + 중앙 마운트.
-function pavoTubeMesh(sp) {
+// ── pavoTubeII6c — NANLITE PavoTube II 6C (가로 튜브, +Z 발광) → LIT-007/008 ──
+//   (출처: LIT-008_PavoTubeII6C/LIT-008_threejs.js, 제품명 기준 매핑)
+function ptRoundedRect(hw, hh, r) {
+    const s = new THREE.Shape();
+    s.moveTo(-hw + r, -hh);
+    s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    s.lineTo(hw, hh - r);  s.quadraticCurveTo(hw, hh, hw - r, hh);
+    s.lineTo(-hw + r, hh); s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+    return s;
+}
+function pavoTubeII6c(sp) {
     const g = new THREE.Group();
-    const L = sp.d || 0.53;                 // 튜브 길이(긴 축)
-    const r = (sp.tubeR || (sp.w ? sp.w / 2 : 0.014));
-    const dark = M.black();
+    const L = sp.len || sp.w, HL = L / 2, HW = sp.h / 2, HD = sp.d / 2;
+    const alu = M.aluDk(), knobM = M.knob(), body = M.black();
+    const blue = mat(0x1f8fd0, { roughness: 0.40, metalness: 0.20 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
 
-    // 발광 본체 (Y축으로 눕힌 원통)
-    const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(r, r, L, 18, 1),
-        mat(0xf2f5ff, { emissive: 0xdfe8ff, emissiveIntensity: 0.9, roughness: 0.5 }));
-    g.add(body);
-    markEmitter(body, { coneDeg: sp.beam || 180, softness: 0.7, shape: 'tube', size: L });
+    const shellGeo = new THREE.ExtrudeGeometry(
+        ptRoundedRect(HW, HD, 0.007), { depth: L, bevelEnabled: false, curveSegments: 2 });
+    shellGeo.rotateY(Math.PI / 2); shellGeo.translate(-HL, 0, 0);
+    g.add(new THREE.Mesh(shellGeo, alu));
 
-    // 양끝 캡
+    const dw = sp.diffuser || 0.03;
+    const diff = new THREE.Mesh(new THREE.BoxGeometry(L - 0.016, dw, 0.004), M.diff());
+    diff.position.set(0, 0, HD - 0.002); g.add(diff);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(L - 0.020, dw - 0.003), M.diff());
+    face.position.set(0, 0, HD - 0.0002);
+    markEmitter(face, { coneDeg: sp.beam || 180, softness: 0.7, shape: 'tube', size: L - 0.020 });
+    g.add(face);
+
+    const caps = [];
     for (const s of [-1, 1]) {
-        const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.15, r * 1.15, 0.022, 14), dark);
-        cap.position.y = s * (L / 2 + 0.005);
-        g.add(cap);
+        caps.push(box(0.008, sp.h, sp.d, s * (HL - 0.004), 0, 0));
+        caps.push({ geo: new THREE.CylinderGeometry(0.0055, 0.0055, 0.005, 10),
+                    pos: [s * (HL - 0.0026), 0, 0], rot: [0, 0, Math.PI / 2] });
     }
-    // 중앙 마운트 브래킷(뒤쪽) + 1/4" 스피곳 소켓
-    const br = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, r * 1.6), M.aluDk());
-    br.position.set(0, 0, -r * 1.1);
-    g.add(br);
+    g.add(new THREE.Mesh(geoBatch(caps), knobM));
+
+    const ctrl = [];
+    ctrl.push(box(0.062, 0.026, 0.003, -0.070, 0, -HD + 0.0015));
+    for (let i = 0; i < 4; i++) ctrl.push(box(0.007, 0.007, 0.003, 0.010 + i * 0.013, 0, -HD + 0.0015));
+    ctrl.push(box(0.010, 0.005, 0.003, 0.080, 0, -HD + 0.0015));
+    g.add(new THREE.Mesh(geoBatch(ctrl), body));
+
+    const line = [];
+    for (const s of [-1, 1]) line.push(box(L - 0.020, 0.003, 0.002, 0, s * (HW - 0.004), HD - 0.002));
+    g.add(new THREE.Mesh(geoBatch(line), blue));
+    return g;
+}
+
+// ── djiRs4Pro — DJI RS 4 Pro 짐벌 (그립 바닥 원점, plate=[x,y,z] 카메라 자리) → GIM-001 ──
+//   (출처: GMB-001_RS4Pro/GMB-001_threejs.js, 제품명 기준 매핑)
+function gmRoundedRect(hw, hh, r) {
+    const s = new THREE.Shape();
+    s.moveTo(-hw + r, -hh);
+    s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    s.lineTo(hw, hh - r);  s.quadraticCurveTo(hw, hh, hw - r, hh);
+    s.lineTo(-hw + r, hh); s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+    return s;
+}
+function gmPivot(parent, [px, py, pz], apply) {
+    const outer = new THREE.Group(); outer.position.set(px, py, pz); apply(outer);
+    const inner = new THREE.Group(); inner.position.set(-px, -py, -pz);
+    outer.add(inner); parent.add(outer); return inner;
+}
+function djiRs4Pro(sp) {
+    const g = new THREE.Group();
+    const D = THREE.MathUtils.degToRad, zc = sp.zCol;
+    const [tx, ty, tz] = sp.tiltPos, [px, py, pz] = sp.plate;
+    const body = M.black(), alu = M.aluDk(), knobM = M.knob();
+    const carbon = mat(0x1b1e23, { roughness: 0.48, metalness: 0.35 });
+    const motor = mat(0x2a2e34, { roughness: 0.44, metalness: 0.50 });
+    const plate = mat(0x3a4046, { roughness: 0.40, metalness: 0.60 });
+    const red = mat(0xb92330, { roughness: 0.45, metalness: 0.15 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylY = (r, len, x, y, z, seg = 12) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 14) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const cylZ = (r, len, x, y, z, seg = 14) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+    const bag = () => ({ body: [], alu: [], carbon: [], red: [], knob: [], motor: [], plate: [] });
+    const PAN = bag(), ROLL = bag(), TILT = bag();
+
+    const gripGeo = new THREE.ExtrudeGeometry(gmRoundedRect(sp.gripW / 2, sp.gripD / 2, 0.011),
+        { depth: sp.gripH, bevelEnabled: false, curveSegments: 2 });
+    gripGeo.rotateX(-Math.PI / 2); gripGeo.translate(0, 0, zc);
+    g.add(new THREE.Mesh(gripGeo, body));
+    g.add(new THREE.Mesh(geoBatch([
+        cylY(0.023, 0.010, 0, 0.120, zc, 12),
+        box(0.030, 0.008, 0.012, 0, 0.062, zc + 0.021),
+        cylY(0.0095, 0.006, 0, 0.003, zc, 10),
+    ]), knobM));
+
+    const pan = gmPivot(g, [0, sp.yPan, zc], o => { o.rotation.y = D(sp.pan || 0); });
+    PAN.motor.push(cylY(0.026, 0.040, 0, sp.yPan, zc));
+    PAN.motor.push(cylY(0.021, 0.008, 0, sp.yPan + 0.024, zc, 12));
+    PAN.carbon.push(box(0.030, 0.090, 0.026, 0, 0.207, zc));
+    PAN.body.push(box(0.056, 0.066, 0.022, 0, 0.203, zc + 0.024));
+    PAN.knob.push(cylZ(0.007, 0.006, 0, 0.176, zc + 0.036, 10));
+    for (const x of [-0.018, 0.018]) PAN.knob.push(box(0.012, 0.007, 0.004, x, 0.176, zc + 0.036));
+    PAN.red.push(box(0.056, 0.004, 0.003, 0, 0.170, zc + 0.0245));
+    PAN.motor.push(cylZ(0.031, 0.058, 0, sp.yRoll, zc));
+    PAN.motor.push(cylZ(0.026, 0.008, 0, sp.yRoll, zc - 0.0339, 12));
+    PAN.body.push(cylZ(0.019, 0.004, 0, sp.yRoll, zc + 0.030, 12));
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.044, 0.032), mat(0x0d1116, { roughness: 0.10, metalness: 0.05 }));
+    scr.position.set(0, 0.209, zc + 0.0352); pan.add(scr);
+
+    const roll = gmPivot(pan, [0, sp.yRoll, zc], o => { o.rotation.z = D(sp.roll || 0); });
+    ROLL.carbon.push(rod([0.010, sp.yRoll + 0.024, zc], [0.028, 0.366, zc], 0.011, 8));
+    ROLL.carbon.push(rod([0.028, 0.366, zc], [tx - 0.020, ty, tz], 0.011, 8));
+    ROLL.motor.push(cylX(0.032, 0.054, tx, ty, tz));
+    ROLL.body.push(cylX(0.019, 0.004, tx + 0.026, ty, tz, 12));
+    ROLL.red.push(cylX(0.0325, 0.007, tx + 0.020, ty, tz, 14));
+
+    const tilt = gmPivot(roll, [tx, ty, tz], o => { o.rotation.x = -D(sp.tilt || 0); });
+    TILT.carbon.push(box(0.215, 0.014, 0.056, -0.0598, 0.373, pz - 0.029));
+    TILT.carbon.push(box(0.030, 0.030, 0.050, 0.036, 0.373, pz - 0.029));
+    TILT.plate.push(box(0.052, 0.012, 0.150, px, py - 0.006, pz));
+    TILT.plate.push(box(0.062, 0.008, 0.034, px, py - 0.016, pz - 0.030));
+    TILT.knob.push(cylX(0.011, 0.030, px + 0.040, py - 0.014, pz - 0.030, 10));
+    TILT.knob.push(box(0.012, 0.005, 0.140, px - 0.029, py - 0.002, pz));
+
+    const MATS = { body, alu, carbon, red, knob: knobM, motor, plate };
+    for (const [target, set] of [[pan, PAN], [roll, ROLL], [tilt, TILT]])
+        for (const k of Object.keys(set)) if (set[k].length) target.add(new THREE.Mesh(geoBatch(set[k]), MATS[k]));
+    return g;
+}
+
+// ── nanliteFc500c — NANLITE FC-500C COB (요크·스피곳 포함) → Forza 500 (LIT-001/002) ──
+//   (출처: LIT-007_FC-500C/LIT-007_threejs.js, 사용자 지정: Forza 500에 적용)
+function nanliteFc500c(sp) {
+    const g = new THREE.Group();
+    const HW = sp.bodyW / 2, HH = sp.h / 2, zF = sp.zFront, zB = sp.zBack;
+    const shell = M.black(), alu = M.aluDk(), knobM = M.knob();
+    const grayTop = mat(0x70767d, { roughness: 0.52, metalness: 0.40 });
+    const blue = mat(0x1f8fd0, { roughness: 0.40, metalness: 0.20 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 14) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const cylZ = (r, len, x, y, z, seg = 20) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+    const yTop = HH - 0.017, zBody = zB + 0.021, zPlate = 0.093;
+
+    const zStep = 0.030, frontW = sp.bodyW - 0.022;
+    g.add(new THREE.Mesh(geoBatch([
+        box(sp.bodyW, yTop + HH, zStep - zBody, 0, (yTop - HH) / 2, (zBody + zStep) / 2),
+        box(frontW, yTop + HH - 0.006, zPlate + 0.005 - zStep, 0, (yTop - HH) / 2 + 0.003, (zStep + zPlate + 0.005) / 2),
+        box(sp.bodyW + 0.004, 0.112, 0.010, 0, -0.004, zBody - 0.004),
+    ]), shell));
+    const topL = zStep - zB;
+    g.add(new THREE.Mesh(geoBatch([
+        box(sp.bodyW + 0.006, 0.017, topL, 0, yTop + 0.0085, zB + topL / 2),
+        box(frontW + 0.006, 0.017, 0.110 - zStep, 0, yTop + 0.0085, (zStep + 0.110) / 2),
+    ]), grayTop));
+    const blueParts = [];
+    for (const s of [-1, 1]) {
+        blueParts.push(box(0.004, 0.007, topL * 0.82, s * (HW + 0.0035), yTop - 0.005, zB + topL * 0.52));
+        blueParts.push(cylX(0.030, 0.006, s * (HW + 0.005), 0, 0, 16));
+    }
+    g.add(new THREE.Mesh(geoBatch(blueParts), blue));
+    const vent = [];
+    vent.push(box(sp.bodyW - 0.030, 0.004, 0.200, 0, -HH + 0.0035, zBody + 0.115));
+    for (let i = 0; i < 3; i++) vent.push(box(sp.bodyW - 0.036, 0.006, 0.005, 0, 0.052 - i * 0.011, zBody - 0.008));
+    g.add(new THREE.Mesh(geoBatch(vent), alu));
+    const ringR = 0.049;
+    const tubeZ = (r, len, z, seg = 20) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg, 1, true), pos: [0, 0, z], rot: [Math.PI / 2, 0, 0] });
+    g.add(new THREE.Mesh(geoBatch([
+        tubeZ(0.0525, 0.056, zF - 0.028), tubeZ(0.0555, 0.012, zF - 0.006),
+        cylZ(0.0525, 0.005, 0, 0, zF - 0.0535, 20),
+    ]), alu));
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(ringR, 20), shell);
+    floor.position.z = zPlate + 0.014; g.add(floor);
+    const ring = new THREE.Mesh(new THREE.CircleGeometry(0.030, 20), M.diff());
+    ring.position.z = zPlate + 0.0150; g.add(ring);
+    const cob = new THREE.Mesh(new THREE.CircleGeometry(0.021, 20),
+        mat(0xf2dd7a, { roughness: 0.85, metalness: 0, emissive: 0xffe9a8, emissiveIntensity: 1.0 }));
+    cob.position.z = zPlate + 0.0156;
+    markEmitter(cob, { coneDeg: sp.beam || 65, softness: 0, shape: 'disc', size: 0.042 });
+    g.add(cob);
+    const zP = zBody - 0.009, ctrl = [];
+    ctrl.push(cylX(0.014, 0.012, -0.046, -0.028, zP + 0.004, 12));
+    for (const x of [-0.006, 0.014]) ctrl.push(box(0.014, 0.008, 0.005, x, -0.030, zP));
+    g.add(new THREE.Mesh(geoBatch(ctrl), knobM));
+    const knobBlue = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 12), blue);
+    knobBlue.rotation.z = Math.PI / 2; knobBlue.position.set(0.046, -0.028, zP + 0.004); g.add(knobBlue);
+    const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.056, 0.026), mat(0x0e1319, { roughness: 0.10, metalness: 0.05 }));
+    lcd.position.set(0, -0.004, zP - 0.0012); lcd.rotation.y = Math.PI; g.add(lcd);
+    const ax = HW + 0.0165, yBot = -0.163;
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.011, 0.212, 0.062, -ax, yBot / 2 + 0.041, 0),
+        box(0.011, 0.212, 0.062, ax, yBot / 2 + 0.041, 0),
+        box(ax * 2 + 0.011, 0.016, 0.062, 0, yBot, 0),
+        { geo: new THREE.CylinderGeometry(0.0145, 0.0145, sp.yokeDrop - 0.171, 12), pos: [0, -(0.171 + sp.yokeDrop) / 2, 0] },
+    ]), alu));
+    const knobs = [];
+    for (const s of [-1, 1]) knobs.push(cylX(0.020, 0.020, s * (sp.w / 2 - 0.010), 0, 0, 14));
+    knobs.push({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.022, 10), pos: [-0.026, -0.163, 0], rot: [0, 0, Math.PI / 2] });
+    g.add(new THREE.Mesh(geoBatch(knobs), knobM));
+    return g;
+}
+
+// ── insta360X3 — INSTA360 X3 360캠 (바닥면 원점) → CAM-006 ──
+//   (출처: CAM-002_X3/CAM-002_threejs.js, 사용자 지정: 새 카메라로 추가)
+function x3RoundedRect(hw, hh, r) {
+    const s = new THREE.Shape();
+    s.moveTo(-hw + r, -hh);
+    s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    s.lineTo(hw, hh - r);  s.quadraticCurveTo(hw, hh, hw - r, hh);
+    s.lineTo(-hw + r, hh); s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+    return s;
+}
+function insta360X3(sp) {
+    const g = new THREE.Group();
+    const W = sp.w, H = sp.h, D = sp.d, BD = sp.bodyD;
+    const zF = BD / 2;
+    const body = M.black(), alu = M.aluDk(), knobM = M.knob();
+    const geo = new THREE.ExtrudeGeometry(x3RoundedRect(W / 2, BD / 2, sp.cornerR),
+        { depth: H, bevelEnabled: false, curveSegments: 4 });
+    geo.rotateX(-Math.PI / 2); g.add(new THREE.Mesh(geo, body));
+    const R = sp.lensDomeR, phi = THREE.MathUtils.degToRad(sp.lensCapDeg), rimR = R * Math.sin(phi);
+    const glass = mat(0x141a20, { roughness: 0.06, metalness: 0.20 });
+    const domes = [], bezels = [];
+    for (const s of [1, -1]) {
+        domes.push({ geo: new THREE.SphereGeometry(R, 12, 4, 0, Math.PI * 2, 0, phi),
+            pos: [0, sp.lensY, s * (D / 2 - R)], rot: [s > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 0] });
+        bezels.push({ geo: new THREE.CylinderGeometry(rimR + 0.0018, rimR + 0.0018, 0.003, 14),
+            pos: [0, sp.lensY, s * (BD / 2 - 0.0012)], rot: [Math.PI / 2, 0, 0] });
+    }
+    g.add(new THREE.Mesh(geoBatch(domes), glass));
+    g.add(new THREE.Mesh(geoBatch(bezels), alu));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(sp.screenW, sp.screenH), mat(0x10151b, { roughness: 0.10, metalness: 0.05 }));
+    screen.position.set(0, 0.040, zF + 0.0006); g.add(screen);
+    const btn = [];
+    btn.push({ geo: new THREE.CylinderGeometry(0.0055, 0.0055, 0.0022, 10), pos: [-W / 2 - 0.0002, 0.086, 0], rot: [0, 0, Math.PI / 2] });
+    btn.push({ geo: new THREE.CylinderGeometry(0.0040, 0.0040, 0.0020, 10), pos: [-W / 2 - 0.0002, 0.066, 0], rot: [0, 0, Math.PI / 2] });
+    btn.push({ geo: new THREE.BoxGeometry(0.010, 0.004, 0.002), pos: [0, 0.011, zF + 0.0005] });
+    btn.push({ geo: new THREE.CylinderGeometry(0.0015, 0.0015, 0.002, 6), pos: [0, H - 0.004, zF - 0.004] });
+    g.add(new THREE.Mesh(geoBatch(btn), knobM));
+    const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0058, 0.006, 10), alu);
+    socket.position.set(0, 0.003, 0); g.add(socket);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.0016, 0.052, 0.021), knobM);
+    door.position.set(W / 2 - 0.0008, 0.036, 0); g.add(door);
     return g;
 }
 
@@ -1239,10 +1455,22 @@ SPECS['LIT-010'] = { w: 0.076, h: 0.197, d: 0.093, src: 'spec',
 SPECS['MOD-006'] = { w: 0.107, h: 0.073, d: 0.044, src: 'spec',
     bodyD: 0.038, chamX: 0.022, chamY: 0.014 };
 
-// NANLITE PavoTube (길고 얇은 튜브 조명) → LIT-007/008. 지름 ≈2.8cm, 길이 ≈53cm.
+// NANLITE PavoTube II 6C (10인치 튜브) → LIT-007/008. 250×38×38mm.
 ['LIT-007', 'LIT-008'].forEach(id => {
-    SPECS[id] = { w: 0.028, h: 0.028, d: 0.53, tubeR: 0.014, beam: 180, src: 'est' };
+    SPECS[id] = { w: 0.250, h: 0.038, d: 0.038, len: 0.250, diffuser: 0.030, beam: 180, src: 'spec' };
 });
+// DJI RS 4 Pro 짐벌 → GIM-001 (그립 바닥 원점, plate 상면이 카메라 자리)
+SPECS['GIM-001'] = { w: 0.2678, h: 0.415, d: 0.2019, src: 'spec', kind: 'gimbal',
+    pan: 0, roll: 0, tilt: 0, zCol: -0.050, gripW: 0.044, gripD: 0.040, gripH: 0.115,
+    yPan: 0.142, yRoll: 0.270, tiltPos: [0.074, 0.383, -0.030], plate: [-0.095, 0.3915, 0.039] };
+// NANLITE FC-500C COB → Forza 500 (LIT-001/002) [사용자 지정 매핑]
+['LIT-001', 'LIT-002'].forEach(id => {
+    SPECS[id] = { w: 0.2464, h: 0.149, d: 0.3732, bodyW: 0.170, src: 'spec',
+        zFront: 0.152, zBack: -0.2212, yokeDrop: 0.245, tilt: 0, beam: 65 };
+});
+// INSTA360 X3 360캠 → CAM-006 (신규 자산)
+SPECS['CAM-006'] = { w: 0.046, h: 0.114, d: 0.0331, bodyD: 0.0240, src: 'spec', cornerR: 0.011,
+    lensDomeR: 0.0215, lensCapDeg: 38, lensY: 0.0905, screenW: 0.03416, screenH: 0.04727 };
 // PavoTube 소프트박스(긴 사각) → MOD-008 / 프레임 원단 디퓨저·플랙(납작 프레임) → MOD-009
 SPECS['MOD-008'] = { w: 0.16, h: 0.62, d: 0.16, kind: 'boxSoft', src: 'est' };
 SPECS['MOD-009'] = { w: 0.75, h: 0.90, d: 0.03, kind: 'flag', src: 'est' };
@@ -1274,4 +1502,6 @@ function isV1Flash(eq) { return eq && (eq.id === 'LIT-010' || /godox.*v1|고독�
 function isNanlink(eq) { return eq && (eq.id === 'MOD-006' || /nanlink|ws-?tb/i.test(eq.product || '')); }
 // PavoTube 튜브 조명(PavoSlim 과 구분) → LIT-007/008
 function isPavoTube(eq) { return eq && (['LIT-007','LIT-008'].includes(eq.id) || /pavotube/i.test(eq.product || '')); }
+// INSTA360 X3 360캠(제품명 우선) → CAM-006 또는 이름 매칭
+function isInsta360(eq) { return eq && (eq.id === 'CAM-006' || /insta\s*?360|\bx3\b/i.test(eq.product || '')); }
 
