@@ -5886,6 +5886,8 @@ let R3 = null;        // {renderer, scene, cam, ...}
 let three3Sel = null; // 선택된 fid
 let frustumOn = true, shadowsOn = true, focalMM = 35;
 let previewOn = true, previewAR = 1.7778, previewScale = 0.34, guidesOn = true, dofOn = true;
+// 모바일에선 프리뷰(PiP)를 아예 안 그린다 — 작은 화면을 가려서 불편
+function previewActive() { return previewOn && !isMobile(); }
 const PV_SIZES = [0.26, 0.34, 0.46, 0.62];
 
 // 현재 조작 대상 카메라 [fid, item] — 선택된 게 카메라면 그것, 아니면 첫 카메라
@@ -6074,7 +6076,7 @@ function draw3D() {
     // ── 카메라 프리뷰 (PiP) ──
     const [fid, it] = activeCam();
     const box = previewBox(W, H);
-    if (previewOn && it && box) {
+    if (previewActive() && it && box) {
         const eyeY = camEyeY(it), d = camDir(it);
         R3.pvCam.position.set(it.x, eyeY, it.y);
         R3.pvCam.lookAt(it.x + d.x, eyeY + d.y, it.y + d.z);
@@ -6129,7 +6131,7 @@ function syncPreviewFrame() {
     const wrap = document.getElementById('three-wrap');
     const W = wrap.clientWidth, H = wrap.clientHeight;
     const box = previewBox(W, H);
-    if (!previewOn || !it || !box) { el.style.display = 'none'; return; }
+    if (!previewActive() || !it || !box) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     el.style.left = box.x + 'px';
     el.style.top = (H - box.y - box.h) + 'px';   // CSS는 위쪽 원점
@@ -7636,6 +7638,7 @@ function showSel() {
     const el = document.getElementById('three-sel');
     const hin = document.getElementById('h-in');
     const ip = document.getElementById('item-panel');
+    const ipShow = ip && !isMobile();          // 모바일: item-panel(정보 패널) 숨김
     const f = ensure3D(currentScene());
     const so = selObj();
     const pr = document.getElementById('ip-pose');
@@ -7644,7 +7647,7 @@ function showSel() {
         el.innerHTML = `👤 피사체 · 키 ${sj.h.toFixed(2)}m · `
             + `${sj.pose === 'sit' ? '앉은 자세' : '선 자세'} · 눈높이 ${subjectEyeY(sj).toFixed(2)}m`;
         hin.disabled = true;
-        if (ip) {
+        if (ipShow) {
             ip.style.display = 'block';
             document.getElementById('ip-name').textContent = '피사체';
             const ys = document.getElementById('ip-y-s');
@@ -7658,7 +7661,7 @@ function showSel() {
             document.getElementById('ip-info').innerHTML =
                 `눈높이 <b>${subjectEyeY(sj).toFixed(2)}m</b><br>`
                 + `${sj.pose === 'sit' ? '의자 높이 ' + (sj.h * 0.257).toFixed(2) + 'm 기준' : '바닥에 선 자세'}`;
-        }
+        } else if (ip) ip.style.display = 'none';
         return;
     }
     if (pr) pr.style.display = 'none';
@@ -7684,7 +7687,7 @@ function showSel() {
     hin.disabled = false; hin.value = (it.h3 || 0).toFixed(2);
     if (state.ipFold) ip && ip.classList.add('fold');
     // 위치 패널
-    if (ip) {
+    if (ipShow) {
         ip.style.display = 'block';
         document.getElementById('ip-name').textContent = `${eq.id} ${dispName(eq)}`;
         const [lo, hi] = hRange(it);
@@ -7705,7 +7708,7 @@ function showSel() {
             }).join('<br>');
         }
         document.getElementById('ip-info').innerHTML = info;
-    }
+    } else if (ip) ip.style.display = 'none';
 }
 function syncItemPanel(it) {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
@@ -8008,6 +8011,7 @@ function lookAtSubject() {
 function updateCamPanel() {
     const panel = document.getElementById('cam-panel');
     if (!panel) return;
+    if (isMobile()) { panel.style.display = 'none'; return; }   // 모바일: 카메라 정보 패널 숨김
     if (currentScene().mode !== 'three') { panel.style.display = 'none'; return; }
     const f = ensure3D(currentScene());
     // 선택된 항목이 '카메라'일 때만 패널을 보여준다 (아무것도 선택 안 하면 숨김)

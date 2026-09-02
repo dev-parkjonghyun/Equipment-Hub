@@ -3,6 +3,7 @@ const {APP}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
 const H=makeHarness(`isMobile,toggleNav,closeNav,pinchInfo,switchMode,
  moveLocked,toggleMoveLock,updateLockUI,startFloorDrag,addFloorItem,
+ previewActive,updateCamPanel,setPreviewOn:v=>{previewOn=v},
  F:F,getFDrag:()=>fDrag,getFloorSel:()=>floorSel,cur:currentScene`,{runTimers:true});
 const A=H.api;
 const html=require('fs').readFileSync(APP,'utf-8');
@@ -114,6 +115,30 @@ t('build3D 기즈모 조건', html.includes('if (!isViewOnly() && !moveLocked())
 t('잠금 버튼 마크업(mobile-only lockbtn)', (html.match(/class="mobile-only lockbtn on"/g)||[]).length>=2 && html.includes('toggleMoveLock()'));
 t('CSS: .mobile-only 데스크톱 숨김', html.includes('.mobile-only{display:none}'));
 t('CSS: .lockbtn.on 강조', html.includes('.lockbtn.on{'));
+
+console.log('=== 13. 3D 프리뷰 숨김(모바일) ===');
+A.setPreviewOn(true);
+H.ctx.__mobile=false;
+t('데스크톱: 프리뷰 켜짐(previewOn 따름)', A.previewActive()===true);
+H.ctx.__mobile=true;
+t('모바일: 프리뷰 항상 꺼짐', A.previewActive()===false);
+A.setPreviewOn(false);
+t('모바일: previewOn=false여도 꺼짐', A.previewActive()===false);
+A.setPreviewOn(true);
+
+console.log('=== 14. cam-panel 모바일 숨김 ===');
+const cp=H.store['cam-panel'];
+H.ctx.__mobile=true;
+A.updateCamPanel();
+t('모바일: cam-panel 숨김', cp.style.display==='none');
+
+console.log('=== 15. 코드 연결 ===');
+t('PiP 렌더 게이트 previewActive()', html.includes('if (previewActive() && it && box)'));
+t('프리뷰 테두리 게이트 previewActive()', html.includes('if (!previewActive() || !it || !box)'));
+t('updateCamPanel 모바일 가드', html.includes("if (isMobile()) { panel.style.display = 'none'; return; }"));
+t('showSel item-panel 가드(ipShow)', html.includes('const ipShow = ip && !isMobile();'));
+t('item-panel 두 분기 ipShow 사용', (html.match(/if \(ipShow\) \{/g)||[]).length>=2);
+t('모바일이면 item-panel 숨김 처리', (html.match(/else if \(ip\) ip\.style\.display = 'none';/g)||[]).length>=2);
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
