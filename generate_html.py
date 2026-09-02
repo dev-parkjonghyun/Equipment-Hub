@@ -7068,12 +7068,23 @@ function buildItemMesh(eq, it) {
         if (supId) {
             const ssp = specOf(supId);
             const isGim = supId.startsWith('GIM');
-            if (isGim) {                          // 짐벌 = 다리 없이 그립
-                addMesh(grp, new THREE.CylinderGeometry(0.026, 0.026, standH * 0.42, 10), M.aluDk(),
-                    0, standH * 0.79, 0);
-                const grip = addMesh(grp, new THREE.CylinderGeometry(0.032, 0.036, 0.2, 12), M.black(),
-                    0, standH * 0.5, 0);
-                addMesh(grp, new THREE.BoxGeometry(0.05, 0.03, 0.05), M.knob(), 0, standH * 0.62, 0);
+            if (isGim) {                          // 짐벌(DJI RS) = 손잡이 + 3축 모터 요람
+                const gy = standH;                // 카메라가 얹히는 높이
+                // 손잡이(아래) + 그립
+                addMesh(grp, new THREE.CylinderGeometry(0.03, 0.034, 0.16, 14), M.black(), 0, gy - 0.42, 0);
+                addMesh(grp, new THREE.CylinderGeometry(0.022, 0.022, 0.20, 12), M.aluDk(), 0, gy - 0.26, 0);
+                // 틸트(팬) 모터 — 손잡이 위 세로축
+                addMesh(grp, new THREE.CylinderGeometry(0.03, 0.03, 0.06, 16), M.knob(), 0, gy - 0.15, 0);
+                // 롤 암(수평으로 뻗어 카메라 옆을 감쌈) + 롤 모터
+                const arm = addMesh(grp, new THREE.BoxGeometry(0.024, 0.024, 0.17), M.aluDk(), 0, gy - 0.10, 0.06);
+                addMesh(grp, new THREE.CylinderGeometry(0.028, 0.028, 0.05, 16), M.knob(), 0.10, gy - 0.02, 0.06)
+                    .rotation.z = Math.PI / 2;
+                // 틸트 암(위로 올라와 카메라 밑을 받침) + 틸트 모터
+                addMesh(grp, new THREE.BoxGeometry(0.022, 0.14, 0.022), M.aluDk(), 0.10, gy - 0.06, 0.02);
+                addMesh(grp, new THREE.CylinderGeometry(0.026, 0.026, 0.05, 16), M.knob(), 0.04, gy, 0.02)
+                    .rotation.z = Math.PI / 2;
+                // 카메라 받침 플레이트
+                addMesh(grp, new THREE.BoxGeometry(0.075, 0.012, 0.09), M.black(), 0, gy - 0.006, 0);
             } else {
                 const supEq = EQUIPMENT.find(e => e.id === supId) || { id: supId };
                 const isTrp = supId.startsWith('TRP');
@@ -7152,6 +7163,11 @@ function buildItemMesh(eq, it) {
             } else if (isV1Flash(eq)) {                   // Godox V1 라운드헤드 플래시 (발이 스탠드 상단)
                 head.add(godoxV1(sp));
                 modY = sp.yPivot; modZ = sp.zHeadFront;
+            } else if (isPavoTube(eq)) {                  // NANLITE PavoTube (길고 얇은 발광 튜브)
+                const ph = pavoTubeMesh(sp);
+                ph.position.y = (sp.d || 0.53) * 0.5;     // 튜브 아랫끝을 스탠드 상단에 두고 위로 세움
+                head.add(ph);
+                modY = (sp.d || 0.53) * 0.5; modZ = (sp.tubeR || 0.014) * 2;
             } else {
                 // 요크(U 브래킷)
                 const yw = sp.w * 0.78;
@@ -7244,6 +7260,14 @@ function buildItemMesh(eq, it) {
                 const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
             } else if (isNanlink(eq)) {      // NANLINK BOX 무선 트랜스미터 (소형 박스)
                 const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
+            } else if (sp.kind === 'flag') {  // 프레임 원단 디퓨저·플랙 (납작한 사각 프레임)
+                const y0 = sp.h * 0.5;
+                addMesh(head, new THREE.BoxGeometry(sp.w + 0.03, sp.h + 0.03, 0.012), M.aluDk(), 0, y0, -0.008);
+                addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, Math.max(0.008, sp.d)), M.diff(), 0, y0, 0, false);
+            } else if (sp.kind === 'boxSoft') {  // 긴 사각 소프트박스 (PavoTube 용)
+                const y0 = sp.h * 0.5;
+                addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, sp.d * 0.7), M.black(), 0, y0, -sp.d * 0.15);
+                addMesh(head, new THREE.BoxGeometry(sp.w * 0.9, sp.h * 0.92, 0.01), M.diff(), 0, y0, sp.d * 0.5, false);
             } else {
                 const sb = parabolicSoftbox(Math.max(0.25, sp.w * 0.6), Math.max(0.22, sp.d), 16);
                 sb.rotation.x = Math.PI / 2;

@@ -118,6 +118,10 @@ let c1=0; A.buildItemMesh(A.EQ().find(e=>e.id==='LIT-005'),litC).traverse(()=>c1
 const litC0={eqId:'LIT-005',x:1,y:1,h3:1.8,parts:[{eqId:'STD-C-001',slot:'support'}]};
 let c0=0; A.buildItemMesh(A.EQ().find(e=>e.id==='LIT-005'),litC0).traverse(()=>c0++);
 t('그립암 장비가 3D에 추가됨', c1>c0, `${c0} → ${c1}`);
+// 짐벌(DJI RS): 얇은 봉이 아니라 손잡이+모터 요람 형태 → 메시 여러 개
+const camGim={eqId:'CAM-003',x:1,y:1,h3:1.2,parts:[{eqId:'GIM-001',slot:'support'}]};
+let g1=0; A.buildItemMesh(A.EQ().find(e=>e.id==='CAM-003'),camGim).traverse(m=>{if(m.isMesh)g1++;});
+t('짐벌이 여러 부품으로 그려짐(봉 아님)', g1>=8, g1+'개 메시');
 
 console.log('=== 6. 조명 조립 ===');
 A.clearScene(); A.switchMode('layout');

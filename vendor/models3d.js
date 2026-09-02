@@ -1154,6 +1154,34 @@ function nanlinkBoxWsTb1(sp) {
     return g;
 }
 
+// ── pavoTubeMesh — NANLITE PavoTube (길고 얇은 발광 튜브) → LIT-007/008 ──
+// 원점 중심, Y축으로 세운 튜브. 발광면(M.diff) + 양끝 다크 캡 + 중앙 마운트.
+function pavoTubeMesh(sp) {
+    const g = new THREE.Group();
+    const L = sp.d || 0.53;                 // 튜브 길이(긴 축)
+    const r = (sp.tubeR || (sp.w ? sp.w / 2 : 0.014));
+    const dark = M.black();
+
+    // 발광 본체 (Y축으로 눕힌 원통)
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(r, r, L, 18, 1),
+        mat(0xf2f5ff, { emissive: 0xdfe8ff, emissiveIntensity: 0.9, roughness: 0.5 }));
+    g.add(body);
+    markEmitter(body, { coneDeg: sp.beam || 180, softness: 0.7, shape: 'tube', size: L });
+
+    // 양끝 캡
+    for (const s of [-1, 1]) {
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.15, r * 1.15, 0.022, 14), dark);
+        cap.position.y = s * (L / 2 + 0.005);
+        g.add(cap);
+    }
+    // 중앙 마운트 브래킷(뒤쪽) + 1/4" 스피곳 소켓
+    const br = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, r * 1.6), M.aluDk());
+    br.position.set(0, 0, -r * 1.1);
+    g.add(br);
+    return g;
+}
+
 // ── SPECS 등록 (실제 자산 id) — 제조사 공식 치수 ─────────────────────────────
 // NANLITE Forza 60B / 60B Ⅱ : 본체 247×134×87mm
 [['LIT-005'], ['LIT-006']].forEach(([id]) => {
@@ -1211,6 +1239,14 @@ SPECS['LIT-010'] = { w: 0.076, h: 0.197, d: 0.093, src: 'spec',
 SPECS['MOD-006'] = { w: 0.107, h: 0.073, d: 0.044, src: 'spec',
     bodyD: 0.038, chamX: 0.022, chamY: 0.014 };
 
+// NANLITE PavoTube (길고 얇은 튜브 조명) → LIT-007/008. 지름 ≈2.8cm, 길이 ≈53cm.
+['LIT-007', 'LIT-008'].forEach(id => {
+    SPECS[id] = { w: 0.028, h: 0.028, d: 0.53, tubeR: 0.014, beam: 180, src: 'est' };
+});
+// PavoTube 소프트박스(긴 사각) → MOD-008 / 프레임 원단 디퓨저·플랙(납작 프레임) → MOD-009
+SPECS['MOD-008'] = { w: 0.16, h: 0.62, d: 0.16, kind: 'boxSoft', src: 'est' };
+SPECS['MOD-009'] = { w: 0.75, h: 0.90, d: 0.03, kind: 'flag', src: 'est' };
+
 // VALENS VL-3000G 3.2m 이동 배경용 크로스바 → ACC-006 (지름·무게는 실측 추정)
 SPECS['ACC-006'] = { w: 3.20, h: 0.05, d: 0.05, src: 'est',
     sections: 4, secL: 0.80, len: 3.20,
@@ -1236,4 +1272,6 @@ function isPavoSlim(eq) { return eq && (eq.id === 'LIT-003' || /pavoslim/i.test(
 function isMixPanel(eq) { return eq && (eq.id === 'LIT-004' || /mixpanel/i.test(eq.product || '')); }
 function isV1Flash(eq) { return eq && (eq.id === 'LIT-010' || /godox.*v1|고독스\s*v1|\bV1\b/i.test(eq.product || '')); }
 function isNanlink(eq) { return eq && (eq.id === 'MOD-006' || /nanlink|ws-?tb/i.test(eq.product || '')); }
+// PavoTube 튜브 조명(PavoSlim 과 구분) → LIT-007/008
+function isPavoTube(eq) { return eq && (['LIT-007','LIT-008'].includes(eq.id) || /pavotube/i.test(eq.product || '')); }
 

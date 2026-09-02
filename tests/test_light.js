@@ -5,6 +5,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
  isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
+ isPavoTube,pavoTubeMesh,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -103,6 +104,23 @@ t('V1은 작음(플래시)', (()=>{const d=dim(A.godoxV1(A.specOf('LIT-010')));r
 // dispatch: 4종이 일반형 대신 전용 모델을 씀
 t('LIT-003/004/010 dispatch에 전용 모델 연결', nodes(build('LIT-003'))>=1 && nodes(build('LIT-004'))>=1 && nodes(build('LIT-010'))>=1);
 t('MOD-006 dispatch 연결', nodes(build('MOD-006'))>=1);
+
+console.log('=== 9. PavoTube(LIT-007/008) 전용 튜브 ===');
+t('PavoTube 인식(LIT-007/008)', A.isPavoTube({id:'LIT-007'}) && A.isPavoTube({id:'LIT-008'}));
+t('PavoSlim 과 구분', !A.isPavoTube({id:'LIT-003'}) && !A.isPavoSlim({id:'LIT-007'}));
+t('제품명으로도(PavoTube)', A.isPavoTube({product:'NANLITE PavoTube'}));
+t('PavoTube 얇은 튜브 SPECS', (()=>{const s=A.specOf('LIT-007');return s.d>=0.4 && s.w<=0.04;})());
+t('빌더가 메시 생성', nodes(A.pavoTubeMesh(A.specOf('LIT-007')))>=1);
+{ const d=dim(A.pavoTubeMesh(A.specOf('LIT-007')));
+  t('한 축으로 길고 얇음(튜브)', d.y > d.x*3 && d.y > d.z*3, JSON.stringify(d)); }
+t('dispatch 연결(LIT-007/008이 일반형 대신 튜브)', nodes(build('LIT-007'))>=1 && nodes(build('LIT-008'))>=1);
+{ const d=dim(build('LIT-007')); t('배치된 PavoTube도 세로로 긺', d.y > d.x*2, JSON.stringify(d)); }
+
+console.log('=== 10. MOD-008/009 형태 보정 ===');
+t('MOD-008 긴 소프트박스 SPECS', (()=>{const s=A.specOf('MOD-008');return s.kind==='boxSoft' && s.h>s.w;})());
+t('MOD-009 납작 플랙 SPECS', (()=>{const s=A.specOf('MOD-009');return s.kind==='flag' && s.d<=0.05;})());
+t('MOD-008 메시 생성', nodes(build('MOD-008'))>=1);
+t('MOD-009 메시 생성(납작)', (()=>{const d=dim(build('MOD-009'));return nodes(build('MOD-009'))>=1 && d.z < d.x && d.z < d.y;})());
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
