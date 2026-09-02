@@ -47,6 +47,7 @@ function makeHarness(expose,opts){
     '#rig-view button':()=>['nest','link','fold'].map(v=>{const e=getEl('rv-'+v);e.dataset.v=v;return e;}),
     '.rail-btn.tool':()=>['scenes','sets','rig'].map(p=>{const e=getEl('railt-'+p);e.dataset.p=p;return e;}),
     '.rail-btn.mode':()=>[getEl('mode-list')],
+    '.lockbtn':()=>[getEl('lockbtn-floor'),getEl('lockbtn-3d')],
     '.block':()=>[],'.lrow':()=>[],'.eq-card':()=>[]
   };
   ctx.document={getElementById:getEl,

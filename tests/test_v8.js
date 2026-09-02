@@ -38,7 +38,7 @@ console.log('=== 3. 공간 → 평면도/3D 툴바 ===');
 t('공간 pane 제거', !html.includes('id="pane-space"'));
 t('공간 레일 버튼 제거', !html.includes('data-p="space"'));
 t('평면도 툴바에 천장고', html.includes('id="ceil-in2"'));
-t('평면도 툴바에 피사체', /floor-tools[\s\S]{0,900}addSubject\(\)/.test(html));
+t('평면도 툴바에 피사체', /floor-tools[\s\S]{0,1200}addSubject\(\)/.test(html));
 A.switchMode('floor');
 A.setCeiling(3.2);
 t('천장고 두 입력 동기화', H.store['ceil-in'].value===3.2 && H.store['ceil-in2'].value===3.2,

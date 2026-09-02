@@ -2,7 +2,8 @@
 const {APP}=require('./paths.js');
 const {makeHarness}=require('./harness.js');
 const H=makeHarness(`isMobile,toggleNav,closeNav,pinchInfo,switchMode,
- cur:currentScene`,{runTimers:true});
+ moveLocked,toggleMoveLock,updateLockUI,startFloorDrag,addFloorItem,
+ F:F,getFDrag:()=>fDrag,getFloorSel:()=>floorSel,cur:currentScene`,{runTimers:true});
 const A=H.api;
 const html=require('fs').readFileSync(APP,'utf-8');
 let pass=0,fail=0;
@@ -70,6 +71,49 @@ t('평면도 핀치 초기화 연결', html.includes('attachFloorPinch(wrap)'));
 console.log('=== 8. openCat/openPane 모바일 가드 ===');
 t('openCat 모바일 가드', html.includes('if (!init && !isMobile())') );
 t('두 곳(openCat·openPane) 모두 가드', (html.match(/if \(!init && !isMobile\(\)\)/g)||[]).length>=2);
+
+console.log('=== 9. 이동 잠금 상태 ===');
+H.ctx.__mobile=false;
+t('데스크톱은 잠금 아님', A.moveLocked()===false);
+H.ctx.__mobile=true;
+t('모바일은 기본 잠김', A.moveLocked()===true);
+A.toggleMoveLock();
+t('토글하면 해제', A.moveLocked()===false);
+A.toggleMoveLock();
+t('다시 토글하면 잠김', A.moveLocked()===true);
+
+console.log('=== 10. 잠금 버튼 라벨 ===');
+A.updateLockUI();
+t('잠김이면 🔒 라벨', H.store['lockbtn-floor'].textContent.includes('🔒') && H.store['lockbtn-floor'].classList.contains('on'));
+A.toggleMoveLock();            // 해제
+A.updateLockUI();
+t('해제면 🔓 라벨·on 해제', H.store['lockbtn-3d'].textContent.includes('🔓') && !H.store['lockbtn-3d'].classList.contains('on'));
+A.toggleMoveLock();            // 다시 잠금(이후 테스트 위해)
+
+console.log('=== 11. 평면도 이동 잠금(선택은 됨, 이동은 막힘) ===');
+A.switchMode('floor');
+const f=A.F();
+f.items = { it1: { eqId:'CAM-003', x:2, y:2, h3:1, parts:[] } };
+const fev={clientX:100,clientY:100,button:0,stopPropagation(){},preventDefault(){}};
+H.ctx.__mobile=true;           // 잠김
+A.startFloorDrag(fev,'item','it1');
+t('잠금: 선택은 됨', A.getFloorSel() && A.getFloorSel().id==='it1');
+t('잠금: 이동 시작 안 함(fDrag null)', A.getFDrag()===null || A.getFDrag()===undefined);
+A.toggleMoveLock();            // 해제
+A.startFloorDrag(fev,'item','it1');
+t('해제: 이동 시작함(fDrag 생성)', !!A.getFDrag());
+A.toggleMoveLock();            // 정리(다시 잠금)
+
+console.log('=== 12. 이동 잠금 코드 연결 ===');
+t('평면도 startFloorDrag 가드', html.includes('if (moveLocked()) { renderFloor(); return; }'));
+t('방/배경 편집 가드(3곳)', (html.match(/if \(moveLocked\(\)\) return;/g)||[]).length>=3);
+t('3D startFreeDrag 가드', html.includes('if (isViewOnly() || moveLocked()) return false;'));
+t('3D startGizDrag 가드', html.includes('if (isViewOnly() || moveLocked()) return;'));
+t('attachOrbit 기즈모 픽이 !moveLocked()로 감싸짐', html.includes('if (!moveLocked()) {') && html.includes('const ax = pickGizmo(e);'));
+t('build3D 기즈모 조건', html.includes('if (!isViewOnly() && !moveLocked())'));
+t('잠금 버튼 마크업(mobile-only lockbtn)', (html.match(/class="mobile-only lockbtn on"/g)||[]).length>=2 && html.includes('toggleMoveLock()'));
+t('CSS: .mobile-only 데스크톱 숨김', html.includes('.mobile-only{display:none}'));
+t('CSS: .lockbtn.on 강조', html.includes('.lockbtn.on{'));
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);

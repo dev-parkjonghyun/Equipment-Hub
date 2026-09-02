@@ -771,6 +771,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .cat-CAB{--cat-color:#49bdb0}.cat-ACC{--cat-color:#a89076}.cat-ETC{--cat-color:#8fa0b0}
 
 /* ═══ 모바일 네비 요소 (데스크톱에선 숨김) ═══ */
+.mobile-only{display:none}
+.lockbtn.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
 #nav-ham{display:none;background:var(--bg-2);border:1px solid var(--line-2);color:var(--tx-0);
   width:40px;height:40px;padding:0;font-size:19px;border-radius:var(--r-m);flex:0 0 auto;box-shadow:none}
 #nav-ham:hover{background:var(--bg-3)}
@@ -795,6 +797,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   #app.nav-open #nav-scrim{display:block}
   #panel-tab{display:none !important}
   #nav-ham{display:inline-flex;align-items:center;justify-content:center}
+  .mobile-only{display:inline-flex}
 
   /* 상단 툴바: 가로 스크롤 한 줄 */
   #toolbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
@@ -1039,6 +1042,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
             <button onclick="clearScene()">🗑 초기화</button>
             </span>
             <span id="floor-tools" style="display:none">
+                <button class="mobile-only lockbtn on" onclick="toggleMoveLock()"
+                    title="모바일에서 실수로 옮기지 않도록 잠급니다">🔒 이동 잠금</button>
                 <button onclick="reflowFromLayout()" title="평면도·3D의 장비를 방 안에 다시 정렬합니다">⬇ 배치도 기준 재정렬</button>
                 <div class="divider"></div>
                 <label class="tlab">방 <input id="rm-w" type="number" step="0.1" min="1" max="40"
@@ -1072,6 +1077,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                 <button onclick="clearFloor()">전체 비우기</button>
             </span>
             <span id="three-tools" style="display:none">
+                <button class="mobile-only lockbtn on" onclick="toggleMoveLock()"
+                    title="모바일에서 실수로 옮기지 않도록 잠급니다">🔒 이동 잠금</button>
                 <button onclick="reflowFromLayout()" title="평면도·3D의 장비를 방 안에 다시 정렬합니다">⬇ 배치도 기준 재정렬</button>
                 <button onclick="fitView3D()" title="단축키 Home">🎯 전체 보기</button>
                 <button id="walk-btn" onclick="toggleWalk()" title="단축키 V">🚶 1인칭</button>
@@ -4559,6 +4566,7 @@ function startFloorDrag(e, type, id) {
               : type === 'bg' ? f.bg
               : f.rooms.find(r => r.id === id);
     if (!obj) return;
+    if (moveLocked()) { renderFloor(); return; }   // 모바일 잠금: 선택만, 이동 금지
     // 선택 집합에 포함된 항목을 함께 이동
     const grp = [];
     if ((type === 'item' || type === 'subject') && fMulti.has(id)) {
@@ -4702,6 +4710,7 @@ function undoPenPoint() {
 // ───────── 사각형 방 모서리 리사이즈 ─────────
 let rectRz = null;
 function startRectResize(e, rid, idx) {
+    if (moveLocked()) return;                       // 모바일 잠금
     e.stopPropagation(); e.preventDefault();
     const r = F().rooms.find(x => x.id === rid);
     if (!r || r.type === 'poly') return;
@@ -4736,6 +4745,7 @@ function endRectResize() {
 // 배경 도면 크기 핸들
 let bgRz = null;
 function startBgResize(e) {
+    if (moveLocked()) return;                       // 모바일 잠금
     e.stopPropagation(); e.preventDefault();
     const f = F();
     bgRz = { w: f.bg.w, h: f.bg.h, p: toMeters(e) };
@@ -4760,6 +4770,7 @@ function endBgResize() {
 
 // ───────── 정점 편집 ─────────
 function startVertexDrag(e, rid, idx) {
+    if (moveLocked()) return;                       // 모바일 잠금
     e.stopPropagation(); e.preventDefault();
     const r = F().rooms.find(x => x.id === rid);
     if (!r || !r.pts) return;
@@ -5055,6 +5066,25 @@ function toggleNav() {
 function closeNav() {
     const app = document.getElementById('app');
     if (app) app.classList.remove('nav-open');
+}
+
+// ── 모바일 이동 잠금 (평면도·3D 실수 이동 방지) ──
+let moveUnlocked = false;                       // 세션 한정 — 새로고침하면 다시 잠김
+function moveLocked() { return isMobile() && !moveUnlocked; }
+function updateLockUI() {
+    document.querySelectorAll('.lockbtn').forEach(b => {
+        b.textContent = moveUnlocked ? '🔓 이동 가능' : '🔒 이동 잠금';
+        b.classList.toggle('on', !moveUnlocked);
+    });
+}
+function toggleMoveLock() {
+    moveUnlocked = !moveUnlocked;
+    updateLockUI();
+    if (typeof setStatus === 'function')
+        setStatus(moveUnlocked ? '이동 잠금 해제 — 장비를 옮길 수 있습니다' : '이동 잠금 — 실수로 옮겨지지 않습니다');
+    const m = currentScene().mode;
+    if (m === 'three') build3D();               // 기즈모 표시/숨김 반영
+    else if (m === 'floor') renderFloor();
 }
 let activePane = 'equip';
 let activeCat = 'ALL';
@@ -6176,7 +6206,7 @@ function rayPlaneY(e, y) {
     return ray.origin.clone().addScaledVector(ray.direction, t);
 }
 function startFreeDrag(e, fid) {
-    if (isViewOnly()) return false;
+    if (isViewOnly() || moveLocked()) return false;   // 모바일 잠금: 이동 대신 회전으로
     const so = selObj(fid);
     if (!so) return false;
     const it = so.o;
@@ -6244,7 +6274,8 @@ function hRangeSrc(it) {
     return { kind: 'ceil', id: null, label: '천장 기준' };
 }
 function startGizDrag(e, ax) {
-    if (isViewOnly()) return;
+    if (isViewOnly() || moveLocked()) return;       // 모바일 잠금
+
     const so = selObj();
     if (!so) return;
     const it = so.o;
@@ -6304,9 +6335,11 @@ function attachOrbit(canvas) {
         }
         lx = e.clientX; ly = e.clientY;
         if (e.button === 0 && !e.shiftKey) {
-            const ax = pickGizmo(e);
-            if (ax) { startGizDrag(e, ax); canvas.setPointerCapture(e.pointerId); return; }
-            // 장비를 직접 잡으면 바닥 위에서 자유 이동
+            if (!moveLocked()) {                     // 잠금 중엔 기즈모 픽을 건너뛰어 회전이 막히지 않게
+                const ax = pickGizmo(e);
+                if (ax) { startGizDrag(e, ax); canvas.setPointerCapture(e.pointerId); return; }
+            }
+            // 장비를 탭하면 선택(pick3D), 잠금 아니면 바닥 위에서 자유 이동
             const fid = pick3D(e);
             if (fid && startFreeDrag(e, fid)) {
                 canvas.style.cursor = 'grabbing';
@@ -7463,7 +7496,7 @@ function build3D() {
             gl.position.set(it.x, 0, it.y);
             W.add(gl); R3.helpers.push(gl);
         }
-        if (!isViewOnly()) {
+        if (!isViewOnly() && !moveLocked()) {   // 잠금 중엔 이동 화살표(기즈모)를 숨김
             R3.giz = buildGizmo(isSubj);   // 피사체는 바닥에 서 있으므로 Y축 없음
             R3.giz.position.set(it.x, isSubj ? 0.06 : (it.h3 || 0) + 0.06, it.y);
             W.add(R3.giz);
@@ -8287,6 +8320,7 @@ renderRail();
 if ((state.pane || 'equip') === 'equip') openCat(activeCat, true);
 else openPane(state.pane, true);
 applyEqEdits();
+updateLockUI();                 // 이동 잠금 버튼 라벨 초기화(모바일)
 (async function boot() {
     const sid = new URLSearchParams(location.search).get('s');
     if (sid) { loadSharedScene(sid).catch(() => {}); return; }
