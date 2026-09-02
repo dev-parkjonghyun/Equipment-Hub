@@ -2,6 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>EH 장비 배치도</title>
 <style>
 :root{
@@ -21,10 +25,10 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",
     "Segoe UI","Noto Sans KR",sans-serif;
   background:var(--bg-0); color:var(--tx-0);
-  height:100vh; overflow:hidden; user-select:none;
+  height:100vh; height:100dvh; overflow:hidden; user-select:none;
   -webkit-font-smoothing:antialiased; font-size:13px; letter-spacing:-0.01em;
 }
-#app{display:grid;grid-template-columns:288px 1fr;height:100vh}
+#app{display:grid;grid-template-columns:288px 1fr;height:100vh;height:100dvh}
 
 /* 스크롤바 */
 ::-webkit-scrollbar{width:9px;height:9px}
@@ -221,7 +225,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 
 /* ───── 평면도 ───── */
 #floor-wrap{flex:1;overflow:auto;background:#0d1116;position:relative;display:none}
-#floor-svg{display:block;background:#0f141a;cursor:default}
+#floor-svg{display:block;background:#0f141a;cursor:default;touch-action:none}
 #floor-svg.space{cursor:grab}
 #floor-svg.panning{cursor:grabbing}
 .fitem{cursor:grab}
@@ -247,7 +251,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 
 /* ───── 3D ───── */
 #three-wrap{flex:1;position:relative;display:none;background:#0a0d12}
-#three-canvas{display:block;width:100%;height:100%}
+#three-canvas{display:block;width:100%;height:100%;touch-action:none}
 #three-hud{position:absolute;left:14px;bottom:14px;pointer-events:none;font-size:11.5px;
   color:var(--tx-1);max-width:60%}
 #nav-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;z-index:55;
@@ -730,6 +734,60 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .cat-GIM{--cat-color:#b58aff}.cat-AUD{--cat-color:#5fc98a}.cat-MON{--cat-color:#2ec8d8}
 .cat-BAT{--cat-color:#ef7676}.cat-PWR{--cat-color:#ff9166}.cat-STO{--cat-color:#c78aff}
 .cat-CAB{--cat-color:#49bdb0}.cat-ACC{--cat-color:#a89076}.cat-ETC{--cat-color:#8fa0b0}
+
+/* ═══ 모바일 네비 요소 (데스크톱에선 숨김) ═══ */
+#nav-ham{display:none;background:var(--bg-2);border:1px solid var(--line-2);color:var(--tx-0);
+  width:40px;height:40px;padding:0;font-size:19px;border-radius:var(--r-m);flex:0 0 auto;box-shadow:none}
+#nav-ham:hover{background:var(--bg-3)}
+#nav-scrim{display:none;position:fixed;inset:0;background:rgba(4,7,11,.55);z-index:190;
+  backdrop-filter:blur(1px)}
+
+/* ═══ 모바일 최적화 (스마트폰, ~720px) ═══ */
+@media (max-width:720px){
+  /* 레일+패널을 오프캔버스 서랍으로. 메인이 전체 폭 */
+  #app, #app.pal-hidden{grid-template-columns:1fr}
+  #main{grid-column:1 / -1;min-width:0}
+  #rail, #panel{position:fixed;top:0;height:100dvh;z-index:200;
+    transition:transform .22s ease}
+  #rail{left:0;width:78px;transform:translateX(-100%);
+    padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  #panel{left:78px;width:min(262px, calc(86vw - 78px));
+    transform:translateX(calc(-100% - 78px))}
+  /* pal-hidden(데스크톱 접기)이 켜져 있어도 모바일에선 서랍이 대체 */
+  #app.pal-hidden #panel{width:min(262px, calc(86vw - 78px));
+    visibility:visible;border-right:1px solid var(--line);padding:0}
+  #app.nav-open #rail, #app.nav-open #panel{transform:none}
+  #app.nav-open #nav-scrim{display:block}
+  #panel-tab{display:none !important}
+  #nav-ham{display:inline-flex;align-items:center;justify-content:center}
+
+  /* 상단 툴바: 가로 스크롤 한 줄 */
+  #toolbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    padding-top:calc(9px + env(safe-area-inset-top))}
+  #toolbar::-webkit-scrollbar{display:none}
+  #toolbar > *{flex:0 0 auto}
+  #scene-select{min-width:130px}
+  #lq{width:150px !important}
+  #toolbar button{min-height:40px}
+  /* 입력칸: 16px (탭 시 자동 확대 방지 보강) */
+  #toolbar input, #toolbar select, .mbox input, .mbox select{font-size:16px}
+
+  /* 하단 모드 도크: 전체 폭 3등분 바텀 내비 */
+  #mode-dock{left:0;right:0;border-radius:0;border-right:none;
+    padding-bottom:env(safe-area-inset-bottom)}
+  #mode-dock .md{flex:1;width:auto !important;padding:14px 0}
+
+  /* 터치 타깃 넉넉히 */
+  .eq-card{min-height:46px;padding:9px 11px}
+  .plist-item{min-height:46px}
+  .rail-btn{padding:13px 2px 11px}
+
+  /* 모달: 세로로 길면 스크롤 */
+  .mbox{max-height:88dvh;overflow:auto}
+  .mbox.wide{width:min(760px,94vw)}
+  .ph-wrap{grid-template-columns:1fr !important}
+}
 </style>
 </head>
 <body>
@@ -788,6 +846,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
       </div>
     </aside>
     <button id="panel-tab" onclick="togglePalette()" title="패널 접기/펴기">›</button>
+    <div id="nav-scrim" onclick="closeNav()"></div>
 
     <div id="vo-bar" style="display:none">
       <span class="vo-ic">👁</span>
@@ -863,6 +922,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 
     <main id="main">
         <div id="toolbar">
+            <button id="nav-ham" onclick="toggleNav()" title="메뉴" aria-label="메뉴">☰</button>
             <select id="scene-select" style="display:none"></select>
             <span id="scene-chip"></span>
             <button id="auth-chip" style="display:none"></button>
@@ -2788,6 +2848,7 @@ function switchMode(m) {
         else if (m === 'list') renderList();
         else renderCanvas();
     }
+    if (isMobile()) closeNav();   // 모드를 고르면 서랍을 닫아 캔버스를 보여준다
 }
 
 
@@ -4389,7 +4450,7 @@ function startFloorMarquee(e) {
     document.addEventListener('pointerup', endFloorMarquee);
 }
 function doFloorMarquee(e) {
-    if (!fMq) return;
+    if (!fMq || floorPinching) return;
     const p = toMeters(e);
     if (Math.abs(p.x - fMq.x0) > 0.05 || Math.abs(p.y - fMq.y0) > 0.05) fMq.moved = true;
     fMq.box = { x: Math.min(fMq.x0, p.x), y: Math.min(fMq.y0, p.y),
@@ -4432,7 +4493,7 @@ function startFloorPan(e) {
     document.addEventListener('pointerup', endFloorPan);
 }
 function doFloorPan(e) {
-    if (!fPan) return;
+    if (!fPan || floorPinching) return;
     const wrap = document.getElementById('floor-wrap');
     const dx = e.clientX - fPan.sx, dy = e.clientY - fPan.sy;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) fPan.moved = true;
@@ -4492,7 +4553,7 @@ function startFloorDrag(e, type, id) {
     renderFloor();
 }
 function doFloorDrag(e) {
-    if (!fDrag) return;
+    if (!fDrag || floorPinching) return;
     const f = F(), p = toMeters(e);
     const dx = p.x - fDrag.px, dy = p.y - fDrag.py;
     if (Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02) fDrag.moved = true;
@@ -4952,6 +5013,20 @@ function togglePalette() {
     if (currentScene().mode === 'three') setTimeout(resize3D, 220);
     else if (currentScene().mode === 'floor') setTimeout(syncBgUI, 0);
 }
+
+// ── 모바일 서랍 네비 ──
+function isMobile() {
+    try { return window.matchMedia && window.matchMedia('(max-width:720px)').matches; }
+    catch (e) { return false; }
+}
+function toggleNav() {
+    const app = document.getElementById('app');
+    if (app) app.classList.toggle('nav-open');
+}
+function closeNav() {
+    const app = document.getElementById('app');
+    if (app) app.classList.remove('nav-open');
+}
 let activePane = 'equip';
 let activeCat = 'ALL';
 let railMore = false;
@@ -5023,7 +5098,7 @@ function renderRail() {
 }
 function openCat(c, init) {
     const app = document.getElementById('app');
-    if (!init) {
+    if (!init && !isMobile()) {   // 모바일은 서랍이 대체 — pal-hidden 토글 안 함
         if (activeCat === c && activePane === 'equip' && !app.classList.contains('pal-hidden')) {
             togglePalette(); return;
         }
@@ -5041,7 +5116,7 @@ function openCat(c, init) {
 
 function openPane(p, init) {
     const app = document.getElementById('app');
-    if (!init) {
+    if (!init && !isMobile()) {   // 모바일은 서랍이 대체 — pal-hidden 토글 안 함
         // 같은 탭을 다시 누르면 접기/펴기
         if (activePane === p && !app.classList.contains('pal-hidden')) { togglePalette(); return; }
         if (app.classList.contains('pal-hidden')) togglePalette();
@@ -5423,6 +5498,54 @@ function zoomFloor(k) {
     f.zoom = Math.max(12, Math.min(160, Math.round(f.zoom * k)));
     saveState(); renderFloor();
 }
+
+// ── 평면도 두 손가락 핀치 줌/팬 (모바일) ──
+// 이전 프레임 중점 아래의 세계점을 현재 중점에 고정 → 줌과 팬이 자연스럽게 동시에 됨.
+let floorPts = new Map();
+let floorPinch = null;      // {dist0, zoom0, mx, my}
+let floorPinching = false;
+function floorPinchMove() {
+    if (!floorPinch || floorPts.size < 2) return;
+    const wrap = document.getElementById('floor-wrap');
+    if (!wrap) return;
+    const f = F();
+    const pi = pinchInfo([...floorPts.values()]);
+    const wr = wrap.getBoundingClientRect();
+    const z0 = f.zoom;
+    // 이전 중점 아래의 세계점(현재 줌 기준)
+    const Wx = (wrap.scrollLeft + (floorPinch.mx - wr.left)) / z0;
+    const Wy = (wrap.scrollTop  + (floorPinch.my - wr.top))  / z0;
+    const z1 = Math.max(12, Math.min(160, Math.round(floorPinch.zoom0 * pi.dist / floorPinch.dist0)));
+    if (z1 !== z0) { f.zoom = z1; renderFloor(); }
+    // 그 세계점이 현재 중점 아래 오도록 스크롤(줌+팬 동시)
+    wrap.scrollLeft = Wx * z1 - (pi.mx - wr.left);
+    wrap.scrollTop  = Wy * z1 - (pi.my - wr.top);
+    floorPinch.mx = pi.mx; floorPinch.my = pi.my;
+}
+function attachFloorPinch(wrap) {
+    wrap.addEventListener('pointerdown', e => {
+        floorPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (floorPts.size === 2) {                 // 두 번째 손가락 = 핀치 시작
+            floorPinching = true;
+            if (fMq) endFloorMarquee();
+            if (fPan) endFloorPan();
+            const pi = pinchInfo([...floorPts.values()]);
+            floorPinch = { dist0: pi.dist, zoom0: F().zoom, mx: pi.mx, my: pi.my };
+        }
+    });
+    wrap.addEventListener('pointermove', e => {
+        if (!floorPinching) return;
+        if (floorPts.has(e.pointerId)) floorPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (floorPts.size >= 2) { e.preventDefault(); floorPinchMove(); }
+    });
+    const up = e => {
+        floorPts.delete(e.pointerId);
+        if (floorPts.size < 2) { floorPinch = null; }
+        if (floorPts.size === 0) { if (floorPinching) saveState(); floorPinching = false; }
+    };
+    wrap.addEventListener('pointerup', up);
+    wrap.addEventListener('pointercancel', up);
+}
 function toggleClearance() {
     const f = F();
     f.showClear = !f.showClear;
@@ -5494,6 +5617,8 @@ function editFloorSize() {
 (function initFloorEvents() {
     const wrap = document.getElementById('floor-wrap');
     const svg = document.getElementById('floor-svg');
+
+    attachFloorPinch(wrap);        // 두 손가락 핀치 줌 (모바일)
 
     // 팔레트 드롭
     wrap.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
@@ -6126,10 +6251,28 @@ function endGizDrag() {
     setStatus('위치를 옮겼습니다');
 }
 
+// 두 손가락(포인터)의 거리와 중점 — 3D·평면도 핀치 공용
+function pinchInfo(list) {
+    const a = list[0], b = list[1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    return { dist: Math.hypot(dx, dy), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+}
+
 function attachOrbit(canvas) {
     let mode = null, lx = 0, ly = 0;
+    const pts = new Map();     // 활성 포인터(터치) 추적
+    let pinch = null;          // 두 손가락 핀치 상태 {dist,mx,my}
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('pointerdown', e => {
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size >= 2) {                     // 두 번째 손가락 = 핀치 시작
+            mode = null;
+            if (gizDrag) endGizDrag();
+            if (freeDrag) endFreeDrag();
+            pinch = pinchInfo([...pts.values()]);
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            return;
+        }
         lx = e.clientX; ly = e.clientY;
         if (e.button === 0 && !e.shiftKey) {
             const ax = pickGizmo(e);
@@ -6146,6 +6289,19 @@ function attachOrbit(canvas) {
         canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', e => {
+        if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch && pts.size >= 2) {            // 핀치: 벌리면 줌인, 중점 이동만큼 팬
+            const pi = pinchInfo([...pts.values()]);
+            const o = R3.orbit;
+            if (pi.dist > 0 && pinch.dist > 0)
+                o.dist = Math.max(1.2, Math.min(60, o.dist * pinch.dist / pi.dist));
+            const k = o.dist * 0.0018, b = viewBasis(o.theta);
+            const dmx = pi.mx - pinch.mx, dmy = pi.my - pinch.my;
+            o.tx -= (b.rx * dmx + b.fx * dmy) * k;
+            o.tz -= (b.rz * dmx + b.fz * dmy) * k;
+            pinch = pi;
+            return;
+        }
         if (gizDrag) { moveGizDrag(e); return; }
         if (freeDrag) { moveFreeDrag(e); return; }
         if (!mode) {
@@ -6171,8 +6327,12 @@ function attachOrbit(canvas) {
             o.tz -= (b.rz * dx + b.fz * dy) * k;
         }
     });
-    const stop = () => { mode = null; canvas.style.cursor = '';
-        if (gizDrag) endGizDrag(); if (freeDrag) endFreeDrag(); };
+    const stop = (e) => {
+        if (e) pts.delete(e.pointerId);
+        if (pts.size < 2) pinch = null;
+        if (pts.size === 0) { mode = null; canvas.style.cursor = ''; }
+        if (gizDrag) endGizDrag(); if (freeDrag) endFreeDrag();
+    };
     canvas.addEventListener('pointerup', stop);
     canvas.addEventListener('pointercancel', stop);
     canvas.addEventListener('wheel', e => {

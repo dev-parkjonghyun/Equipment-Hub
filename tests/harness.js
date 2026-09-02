@@ -25,6 +25,8 @@ function makeHarness(expose,opts){
   const ctx={console,setTimeout:(f)=>{typeof f==='function'&&opts.runTimers&&f()},clearTimeout(){},
     devicePixelRatio:1,requestAnimationFrame:()=>{},innerWidth:1400,innerHeight:900,
     addEventListener:()=>{},removeEventListener:()=>{},
+    matchMedia:(q)=>({matches:ctx.__mobile===true,media:q,onchange:null,
+      addEventListener(){},removeEventListener(){},addListener(){},removeListener(){},dispatchEvent(){return false;}}),
     localStorage:{_d:(opts&&opts.seed)?{eh_layout_v1:opts.seed}:{},getItem(k){return this._d[k]||null},setItem(k,v){this._d[k]=v},removeItem(k){delete this._d[k]}},
     alert:m=>{alerts.push(m);ctx.__alert=m},confirm:()=>ctx.__confirm!==false,
     prompt:(q,d)=>ctx.__prompt!==undefined?ctx.__prompt:d,
