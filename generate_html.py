@@ -3107,16 +3107,7 @@ async function loadEquipmentFromServer() {
         // 치수도 함께
         try {
             const sp = await sbFetch('/rest/v1/gear_specs?select=id,w,d,h,h_min,h_max,default_h,src');
-            (sp || []).forEach(x => {
-                if (x.w == null && x.h == null) return;
-                SPECS[x.id] = Object.assign({}, SPECS[x.id], {
-                    w: +x.w || undefined, d: +x.d || undefined, h: +x.h || undefined,
-                    hMin: x.h_min == null ? undefined : +x.h_min,
-                    hMax: x.h_max == null ? undefined : +x.h_max,
-                    src: x.src && /공식/.test(x.src) ? 'spec' : x.src && /평균/.test(x.src) ? 'avg' : 'est',
-                });
-                Object.keys(SPECS[x.id]).forEach(k => SPECS[x.id][k] === undefined && delete SPECS[x.id][k]);
-            });
+            applyServerSpecs(sp);
         } catch (e) { /* 치수는 없어도 동작 */ }
         eqSource = 'server';
         _spc = null;                       // 같은 제품 수 캐시 초기화
@@ -5817,6 +5808,24 @@ const SPECS = {
     ETC: { w: 0.45, h: 0.40, d: 0.45 }
 };
 const SPEC_KEYS = Object.keys(SPECS).sort((a, b) => b.length - a.length);
+
+// 서버(gear_specs) 치수를 클라이언트 SPECS 에 반영한다.
+// ★ 전용 3D 모델이 있는 장비(클라이언트에 특정 id 정밀 치수가 이미 등록됨)는
+//   서버 값으로 덮지 않는다 — 서버 gear_specs 가 옛날 값이라 모양이 틀어지던 문제 해결.
+//   전용 스펙이 없는 제네릭 장비만 서버 치수를 채운다.
+function applyServerSpecs(rows) {
+    (rows || []).forEach(x => {
+        if (!x || (x.w == null && x.h == null)) return;
+        if (SPECS[x.id]) return;                 // 클라이언트 정밀/전용 치수는 서버로 덮지 않음
+        SPECS[x.id] = {
+            w: +x.w || undefined, d: +x.d || undefined, h: +x.h || undefined,
+            hMin: x.h_min == null ? undefined : +x.h_min,
+            hMax: x.h_max == null ? undefined : +x.h_max,
+            src: x.src && /공식/.test(x.src) ? 'spec' : x.src && /평균/.test(x.src) ? 'avg' : 'est',
+        };
+        Object.keys(SPECS[x.id]).forEach(k => SPECS[x.id][k] === undefined && delete SPECS[x.id][k]);
+    });
+}
 
 function specOf(eqId) {
     if (SPECS[eqId]) return SPECS[eqId];
