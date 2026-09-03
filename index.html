@@ -8062,6 +8062,225 @@ function gripArmSet(sp) {
     return g;
 }
 
+// 모서리 둥근 사각 단면 (여러 빌더 공용)
+function roundedRect(hw, hh, r) {
+    const s = new THREE.Shape();
+    s.moveTo(-hw + r, -hh);
+    s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    s.lineTo(hw, hh - r);  s.quadraticCurveTo(hw, hh, hw - r, hh);
+    s.lineTo(-hw + r, hh); s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+    return s;
+}
+
+// ── valensAClamp — VALENS A클램프(스프링/악어 클램프) → ACC-012(9")/013·014(6") ──
+function strip(a, b, w, t) {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+    const dir = new THREE.Vector3().subVectors(B, A), len = dir.length();
+    return { geo: new THREE.BoxGeometry(w, t, len), pos: A.clone().addScaledVector(dir, 0.5).toArray(),
+        quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize()) };
+}
+function valensAClamp(sp) {
+    const g = new THREE.Group();
+    const SIZES = {
+        6: { len: 0.152, jaw: 0.051, spread: 0.052, armW: 0.026 },
+        9: { len: 0.229, jaw: 0.076, spread: 0.078, armW: 0.032 } };
+    const S = SIZES[sp.size] || SIZES[6];
+    const AW = S.armW, HAW = AW / 2, op = THREE.MathUtils.clamp(sp.open || 0, 0, 1);
+    const armF = S.len * 0.55, armR = S.len * 0.45, gap = S.jaw * op;
+    const psi = Math.asin(Math.min((gap / 2) / armF, 0.6)), spread = S.spread, T = 0.0045;
+    const steel = mat(0x9aa1aa, { roughness: 0.34, metalness: 0.88 });
+    const tipM = sp.tipColor === 'red' ? mat(0x9c2b26, { roughness: 0.88, metalness: 0 }) : M.rubber();
+    const gripM = M.rubber(), pinM = M.knob();
+    function arm(s) {
+        const a = new THREE.Group(); a.position.set(0, 0, -armF); a.rotation.x = -s * psi; g.add(a);
+        const H = [0, s * spread / 2, -armR], P = [0, 0, 0], B = [0, s * (T / 2 + 0.002), armF * 0.45], Tp = [0, s * (T / 2), armF];
+        a.add(new THREE.Mesh(geoBatch([ strip(H, P, AW, T), strip(P, B, AW, T), strip(B, Tp, AW, T),
+            { geo: new THREE.BoxGeometry(AW, 0.014, 0.016), pos: [0, 0, 0] } ]), steel));
+        a.add(new THREE.Mesh(geoBatch([ strip([0, s * 0.0055, armF * 0.45], [0, s * 0.0055, armF + 0.002], AW + 0.002, 0.011) ]), tipM));
+        a.add(new THREE.Mesh(geoBatch([ strip([0, s * spread / 2 * 0.98, -armR * 0.96], [0, s * spread / 2 * 0.52, -armR * 0.42], AW + 0.004, 0.013) ]), gripM));
+    }
+    arm(1); arm(-1);
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, AW + 0.010, 8), pinM);
+    pin.rotation.z = Math.PI / 2; pin.position.set(0, 0, -armF); g.add(pin);
+    const coil = [];
+    for (const s of [-1, 1]) {
+        coil.push({ geo: new THREE.TorusGeometry(0.0090, 0.0016, 4, 10), pos: [s * (HAW + 0.004), 0, -armF], rot: [0, Math.PI / 2, 0] });
+        coil.push({ geo: new THREE.TorusGeometry(0.0105, 0.0016, 4, 10), pos: [s * (HAW + 0.0072), 0, -armF], rot: [0, Math.PI / 2, 0] });
+    }
+    g.add(new THREE.Mesh(geoBatch(coil), steel));
+    return g;
+}
+
+// ── gentreeECubeVMount — GENTREE E-CUBE V마운트 배터리 → BAT-V-001/002/003 ──
+function gentreeECubeVMount(sp) {
+    const g = new THREE.Group();
+    const CAP = { 290: { d: 0.078 }, 195: { d: 0.059 } };
+    const C = CAP[sp.wh] || CAP[290];
+    const HW = sp.w / 2, HH = sp.h / 2, D = C.d, PL = 0.012, zBack = -D, zBody = -PL;
+    const shellM = mat(0x232629, { roughness: 0.62, metalness: 0.06 }), plateM = M.aluDk(), knobM = M.knob();
+    const slot = mat(0x0d0f12, { roughness: 0.9, metalness: 0.05 });
+    const ledOn = mat(0x2fd07a, { roughness: 0.3, metalness: 0, emissive: 0x1f8a50, emissiveIntensity: 0.8 });
+    const ledOff = mat(0x1a1d21, { roughness: 0.8, metalness: 0.05 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylZ = (r, len, x, y, z, seg = 10) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+    const shell = new THREE.ExtrudeGeometry(roundedRect(HW, HH, 0.007), { depth: D - PL, bevelEnabled: false, curveSegments: 2 });
+    shell.translate(0, 0, zBack); g.add(new THREE.Mesh(shell, shellM));
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.052, 0.010, D * 0.55, 0, HH - 0.006, zBack + D * 0.5),
+        box(0.001, 0.030, 0.044, HW, -HH * 0.30, zBack + D * 0.55),
+        box(0.001, 0.030, 0.044, -HW, -HH * 0.30, zBack + D * 0.55),
+        box(0.095, 0.096, PL - 0.002, 0, 0, zBody),
+    ]), plateM));
+    for (const s of [-1, 1]) {
+        const ch = new THREE.Mesh(new THREE.BoxGeometry(0.013, 0.076, 0.011), slot);
+        ch.position.set(s * 0.0415, 0, -0.0072); ch.rotation.y = s * 0.18; g.add(ch);
+    }
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.026, 0.014, 0.008, 0, 0.040, -0.006),
+        box(0.030, 0.009, 0.005, 0, -0.030, -0.0025),
+    ]), knobM));
+    const zP = zBack, port = [];
+    for (const s of [-1, 1]) port.push(box(0.019, 0.013, 0.006, s * 0.026, -HH * 0.52, zP + 0.003));
+    port.push(box(0.011, 0.005, 0.006, 0, -HH * 0.52, zP + 0.003));
+    port.push(cylZ(0.0045, 0.005, 0.034, HH * 0.36, zP + 0.0025, 8));
+    g.add(new THREE.Mesh(geoBatch(port), knobM));
+    g.add(new THREE.Mesh(geoBatch([box(0.062, 0.016, 0.004, -0.008, HH * 0.36, zP + 0.002)]), plateM));
+    const on = [], off = [], leds = sp.leds || 10;
+    for (let i = 0; i < leds; i++) {
+        const seg = box(0.0042, 0.010, 0.003, -0.035 + i * 0.006, HH * 0.36, zP + 0.0015);
+        (i < THREE.MathUtils.clamp(sp.level != null ? sp.level : leds, 0, leds) ? on : off).push(seg);
+    }
+    if (on.length) g.add(new THREE.Mesh(geoBatch(on), ledOn));
+    if (off.length) g.add(new THREE.Mesh(geoBatch(off), ledOff));
+    return g;
+}
+
+// ── nanliteBtBgV — NANLITE BT-BG-V V마운트 배터리 그립 → PWR-005 ──
+function nanliteBtBgV(sp) {
+    const g = new THREE.Group();
+    const HW = sp.w / 2, HD = sp.d / 2, BOSS = 0.018, H = sp.h - BOSS, PL = 0.021, zBack = -HD, zBody = -HD + PL;
+    const body = M.black(), alu = M.aluDk(), knobM = M.knob(), bore = mat(0x101216, { roughness: 0.85, metalness: 0.1 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylY = (r, len, x, y, z, seg = 12) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const cylZ = (r, len, x, y, z, seg = 10) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+    const shell = new THREE.ExtrudeGeometry(roundedRect(HW, H / 2, 0.008), { depth: HD - zBody, bevelEnabled: false, curveSegments: 2 });
+    shell.translate(0, H / 2, zBody); g.add(new THREE.Mesh(shell, body));
+    const yP = H * 0.50;
+    g.add(new THREE.Mesh(geoBatch([box(0.086, 0.090, 0.008, 0, yP, zBody - 0.004)]), alu));
+    for (const s of [-1, 1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.014, sp.railLen || 0.072, 0.017), alu);
+        rail.position.set(s * (sp.railGap || 0.086) / 2, yP, zBack + 0.0088); rail.rotation.y = s * 0.22; g.add(rail);
+    }
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.030, 0.018, 0.011, 0, yP + 0.038, zBack + 0.0055),
+        cylZ(0.005, 0.012, 0, yP + 0.038, zBack + 0.006, 8),
+        box(0.010, 0.034, 0.014, -0.046, yP, zBody - 0.008),
+    ]), knobM));
+    g.add(new THREE.Mesh(geoBatch([cylY(0.016, BOSS, 0, H + BOSS / 2, 0, 12)]), alu));
+    const socket = new THREE.Mesh(new THREE.CircleGeometry(0.0086, 12), bore);
+    socket.rotation.x = -Math.PI / 2; socket.position.set(0, sp.h - 0.0004, 0); g.add(socket);
+    const kg = new THREE.Group(); kg.position.set(0, H + BOSS / 2, 0); g.add(kg);
+    kg.add(new THREE.Mesh(geoBatch([
+        { geo: new THREE.CylinderGeometry(0.005, 0.005, 0.026, 8), pos: [0.026, 0, 0], rot: [0, 0, Math.PI / 2] },
+        { geo: new THREE.CylinderGeometry(0.010, 0.010, 0.008, 10), pos: [0.041, 0, 0], rot: [0, 0, Math.PI / 2] },
+    ]), knobM));
+    const bot = new THREE.Mesh(new THREE.CircleGeometry(0.0086, 12), bore);
+    bot.rotation.x = Math.PI / 2; bot.position.set(0, 0.0006, 0); g.add(bot);
+    const zF = HD, io = [];
+    io.push(cylZ(0.0065, 0.010, -0.026, H * 0.16, zF - 0.005, 10));
+    io.push(box(0.016, 0.008, 0.004, 0.024, H * 0.16, zF - 0.002));
+    io.push(cylZ(0.0028, 0.003, 0.024, H * 0.16 + 0.016, zF - 0.0015, 8));
+    io.push(box(0.062, 0.003, 0.003, 0, H * 0.82, zF - 0.0015));
+    g.add(new THREE.Mesh(geoBatch(io), knobM));
+    return g;
+}
+
+// ── rocknrollerR12rt — RockNRoller R12RT 멀티카트 → ETC-001 ──
+function rocknrollerR12rt(sp) {
+    const g = new THREE.Group();
+    const L = THREE.MathUtils.lerp(sp.lenMin || 0.864, sp.lenMax || 1.321, THREE.MathUtils.clamp(sp.ext != null ? sp.ext : 1, 0, 1));
+    const HL = L / 2, rR = sp.rearD / 2, fR = sp.frontD / 2, yRail = sp.yRail;
+    const frame = M.black(), tyre = M.rubber(), hub = mat(0xe0a318, { roughness: 0.45, metalness: 0.2 }), grip = mat(0x1a1c20, { roughness: 0.92, metalness: 0 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 16) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const cylY = (r, len, x, y, z, seg = 10) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const rx = 0.120, fr = [];
+    for (const s of [-1, 1]) fr.push(box(0.024, 0.030, L, s * rx, yRail, 0));
+    for (const z of [-HL + 0.12, 0, HL - 0.10]) fr.push(box(rx * 2, 0.022, 0.026, 0, yRail, z));
+    for (let i = 0; i < 5; i++) fr.push(box(rx * 2 - 0.010, 0.008, 0.020, 0, yRail + 0.018, -HL + 0.20 + i * (L - 0.34) / 4));
+    fr.push(box(0.040, 0.026, 0.070, 0, yRail - 0.028, -HL + 0.10));
+    g.add(new THREE.Mesh(geoBatch(fr), frame));
+    const zRear = -HL + 0.13, xRear = 0.1325, tyres = [], hubs = [];
+    for (const s of [-1, 1]) { tyres.push(cylX(rR, sp.rearW, s * xRear, rR, zRear)); hubs.push(cylX(rR * 0.62, sp.rearW + 0.002, s * xRear, rR, zRear, 12)); }
+    const zFront = HL - 0.11, xFront = 0.108, forks = [];
+    for (const s of [-1, 1]) {
+        tyres.push(cylX(fR, sp.frontW, s * xFront, fR, zFront)); hubs.push(cylX(fR * 0.60, sp.frontW + 0.002, s * xFront, fR, zFront, 12));
+        for (const t of [-1, 1]) forks.push(box(0.008, fR + 0.030, 0.030, s * xFront + t * (sp.frontW / 2 + 0.005), fR + (fR + 0.030) / 2 - 0.010, zFront));
+        forks.push(cylY(0.016, 0.020, s * xFront, fR * 2 + 0.026, zFront, 10));
+        forks.push(box(0.052, 0.010, 0.052, s * xFront, fR * 2 + 0.040, zFront));
+        forks.push(box(0.020, yRail - (fR * 2 + 0.040), 0.024, s * xFront, (fR * 2 + 0.045 + yRail) / 2, zFront));
+    }
+    g.add(new THREE.Mesh(geoBatch(tyres), tyre)); g.add(new THREE.Mesh(geoBatch(hubs), hub)); g.add(new THREE.Mesh(geoBatch(forks), frame));
+    const pivotY = sp.pivotY, pivotZ = -HL + 0.06, upH = sp.h - pivotY, post = [];
+    for (const s2 of [-1, 1]) post.push(box(0.026, pivotY - yRail, 0.026, s2 * 0.128, (yRail + pivotY) / 2, pivotZ));
+    g.add(new THREE.Mesh(geoBatch(post), frame));
+    const hg = new THREE.Group(); hg.position.set(0, pivotY, pivotZ); hg.rotation.x = THREE.MathUtils.degToRad(90 * (1 - (sp.handle != null ? sp.handle : 1))); g.add(hg);
+    const hx = 0.128, bar = [];
+    for (const s of [-1, 1]) bar.push({ geo: new THREE.BoxGeometry(0.026, upH, 0.026), pos: [s * hx, upH / 2, 0] });
+    bar.push({ geo: new THREE.BoxGeometry(hx * 2 + 0.026, 0.026, 0.026), pos: [0, upH - 0.013, 0] });
+    hg.add(new THREE.Mesh(geoBatch(bar), frame));
+    const gp = new THREE.Mesh(new THREE.BoxGeometry(hx * 1.5, 0.026, 0.030), grip); gp.position.set(0, upH - 0.013, 0); hg.add(gp);
+    return g;
+}
+
+// ── vendictRoverWagon — VENDICT ROVER 캠핑 웨건 → ETC-003 ──
+function vendictRoverWagon(sp) {
+    const g = new THREE.Group();
+    const FABRIC = { black: 0x24262a, ivory: 0xd9cfbd, khaki: 0x6e6a51 };
+    const HW = sp.w / 2, R = sp.wheelD / 2, yF = sp.floorY, yR = yF + sp.tubH;
+    const HWt = sp.tubW / 2 + 0.008, HDt = sp.tubD / 2 + 0.008;
+    const steel = M.black(), tyreM = M.rubber(), hubM = mat(0x4a4f56, { roughness: 0.5, metalness: 0.45 }), knobM = M.knob();
+    const cloth = mat(FABRIC[sp.color] || FABRIC.black, { roughness: 0.94, metalness: 0 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const tubeX = (r, len, x, y, z, seg = 6) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const tubeY = (r, len, x, y, z, seg = 6) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const tubeZ = (r, len, x, y, z, seg = 6) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+    const T = 0.011, xRail = 0.150, yRail = 0.145, zF = 0.320, zR = -0.345, xPost = HWt, zPost = HDt, fr = [];
+    for (const s of [-1, 1]) fr.push(tubeZ(T, sp.d - 0.06, s * xRail, yRail, 0, 6));
+    for (const z of [zF, 0, zR]) fr.push(tubeX(T, xRail * 2, 0, yRail, z, 6));
+    for (const z of [zF, zR]) for (const s of [-1, 1]) fr.push(tubeX(0.008, 0.12, s * (xRail + 0.05), R, z, 6));
+    for (const z of [zF, zR]) for (const s of [-1, 1]) fr.push(rod([s * xRail, yRail, z], [s * (xRail + 0.075), R, z], 0.009, 6));
+    for (const s of [-1, 1]) for (const z of [-1, 1]) fr.push(tubeY(T, yR - yRail, s * xPost, (yRail + yR) / 2, z * zPost, 6));
+    for (const s of [-1, 1]) fr.push(tubeZ(T, zPost * 2, s * xPost, yR, 0, 6));
+    for (const z of [-1, 1]) fr.push(tubeX(T, xPost * 2, 0, yR, z * zPost, 6));
+    for (const s of [-1, 1]) {
+        fr.push(rod([s * (xPost + 0.010), yRail + 0.01, -zPost + 0.02], [s * (xPost + 0.010), yR - 0.01, zPost - 0.02], 0.007, 6));
+        fr.push(rod([s * (xPost + 0.010), yR - 0.01, -zPost + 0.02], [s * (xPost + 0.010), yRail + 0.01, zPost - 0.02], 0.007, 6));
+    }
+    for (const s of [-1, 1]) fr.push(rod([s * 0.115, yR, -zPost], [s * 0.115, yR + 0.085, -zPost - 0.045], 0.009, 6));
+    fr.push({ geo: new THREE.CylinderGeometry(0.009, 0.009, 0.230, 6), pos: [0, yR + 0.085, -zPost - 0.045], rot: [0, 0, Math.PI / 2] });
+    g.add(new THREE.Mesh(geoBatch(fr), steel));
+    const tyres = [], hubs = [], xW = HW - sp.wheelW / 2;
+    for (const z of [zF, zR]) for (const s of [-1, 1]) { tyres.push(tubeX(R, sp.wheelW, s * xW, R, z, 12)); hubs.push(tubeX(R * 0.52, sp.wheelW + 0.002, s * xW, R, z, 8)); }
+    g.add(new THREE.Mesh(geoBatch(tyres), tyreM)); g.add(new THREE.Mesh(geoBatch(hubs), hubM));
+    const W = 0.008, tub = [];
+    tub.push(box(HWt * 2, W, HDt * 2, 0, yF, 0));
+    for (const s of [-1, 1]) tub.push(box(W, sp.tubH, HDt * 2, s * HWt, yF + sp.tubH / 2, 0));
+    tub.push(box(HWt * 2, sp.tubH, W, 0, yF + sp.tubH / 2, HDt));
+    tub.push(box(HWt * 2, sp.tubH, W, 0, yF + sp.tubH / 2, -HDt));   // 뒷면(닫힘)
+    g.add(new THREE.Mesh(geoBatch(tub), cloth));
+    // 신축 손잡이 (수직)
+    const hlen = sp.handleLen || 0.35, hh = new THREE.Group();
+    hh.position.set(0, yR, zPost); hh.rotation.x = -THREE.MathUtils.degToRad(sp.handleDeg != null ? sp.handleDeg : 90); g.add(hh);
+    hh.add(new THREE.Mesh(geoBatch([
+        { geo: new THREE.CylinderGeometry(0.010, 0.010, hlen, 6), pos: [-0.11, hlen / 2, 0] },
+        { geo: new THREE.CylinderGeometry(0.010, 0.010, hlen, 6), pos: [0.11, hlen / 2, 0] },
+        { geo: new THREE.CylinderGeometry(0.011, 0.011, 0.24, 6), pos: [0, hlen, 0], rot: [0, 0, Math.PI / 2] },
+    ]), steel));
+    return g;
+}
+
 // ── SPECS 등록 (실제 자산 id) — 제조사 공식 치수 ─────────────────────────────
 // NANLITE Forza 60B / 60B Ⅱ : 본체 247×134×87mm
 [['LIT-005'], ['LIT-006']].forEach(([id]) => {
@@ -8160,6 +8379,23 @@ SPECS['ACC-005'] = { w: 0.112, h: 0.072, d: 0.034, role: 'tx', antAngle: 0, antL
 ['ACC-001', 'ACC-002', 'ACC-003'].forEach(id => {
     SPECS[id] = { w: 1.075, h: 0.095, d: 0.052, rodLen: 1.016, rodD: 0.016, headTilt: 0, src: 'est' };
 });
+// VALENS A클램프 — 9인치(ACC-012) · 6인치(ACC-013/014)
+SPECS['ACC-012'] = { w: 0.042, h: 0.085, d: 0.229, size: 9, open: 0, tipColor: 'black', src: 'est' };
+['ACC-013', 'ACC-014'].forEach(id => {
+    SPECS[id] = { w: 0.036, h: 0.057, d: 0.152, size: 6, open: 0, tipColor: 'black', src: 'est' };
+});
+// GENTREE E-CUBE V마운트 배터리 → BAT-V-001/002/003 (같은 제품)
+['BAT-V-001', 'BAT-V-002', 'BAT-V-003'].forEach(id => {
+    SPECS[id] = { w: 0.097, h: 0.146, d: 0.078, wh: 290, leds: 10, level: 10, src: 'est' };
+});
+// NANLITE BT-BG-V V마운트 배터리 그립 → PWR-005
+SPECS['PWR-005'] = { w: 0.1020, h: 0.1565, d: 0.0935, railGap: 0.086, railLen: 0.072, knobDeg: 0, src: 'est' };
+// RockNRoller R12RT 멀티카트 → ETC-001
+SPECS['ETC-001'] = { w: 0.343, h: 1.054, d: 1.321, ext: 1, handle: 1, lenMin: 0.864, lenMax: 1.321,
+    rearD: 0.254, rearW: 0.076, frontD: 0.203, frontW: 0.051, yRail: 0.165, pivotY: 0.290, src: 'est' };
+// VENDICT ROVER 캠핑 웨건 → ETC-003
+SPECS['ETC-003'] = { w: 0.600, h: 0.950, d: 0.950, handleDeg: 90, handleLen: 0.350, color: 'black',
+    wheelD: 0.255, wheelW: 0.100, tubW: 0.530, tubD: 0.870, tubH: 0.325, floorY: 0.275, src: 'est' };
 
 // 서브 부품 스펙 (자산 아님 — 빌더에 넘긴다)
 const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45 };
@@ -8189,6 +8425,16 @@ function isMarsM1(eq) { return eq && (eq.id === 'MON-002' || /mars\s*m1/i.test(e
 function isMars400(eq) { return eq && (eq.id === 'ACC-005' || /mars\s*400/i.test(eq.product || '')); }
 // VALENS 그립암/그립헤드 세트 → ACC-001/002/003
 function isGripArmSet(eq) { return eq && (['ACC-001','ACC-002','ACC-003'].includes(eq.id) || /그립\s*암|그립\s*헤드|griparm|grip\s*head|vl-?40ga|vl-?033/i.test(eq.product || '')); }
+// VALENS A클램프 → ACC-012/013/014
+function isAClamp(eq) { return eq && (['ACC-012','ACC-013','ACC-014'].includes(eq.id) || /a\s*클램프|클램프|clamp|vl-?0[69]c/i.test(eq.product || '')); }
+// GENTREE E-CUBE V마운트 배터리 → BAT-V-001/002/003 (FXLION BAT-V-004 제외)
+function isECubeBat(eq) { return eq && (['BAT-V-001','BAT-V-002','BAT-V-003'].includes(eq.id) || /e-?cube|gentree|젠트리|gentree/i.test(eq.product || '')); }
+// NANLITE BT-BG-V 배터리 그립 → PWR-005 (BH-FZ260-V PWR-004 와 구분)
+function isBtBgV(eq) { return eq && (eq.id === 'PWR-005' || /bt-?bg-?v/i.test(eq.product || '')); }
+// RockNRoller 멀티카트 → ETC-001
+function isRnrCart(eq) { return eq && (eq.id === 'ETC-001' || /rocknroller|r12rt|멀티\s*카트|카트/i.test(eq.product || '')); }
+// VENDICT ROVER 웨건 → ETC-003
+function isRoverWagon(eq) { return eq && (eq.id === 'ETC-003' || /rover|웨건|왜건|wagon/i.test(eq.product || '')); }
 
 
 function tint(cat, o) {
@@ -9121,6 +9367,16 @@ function buildItemMesh(eq, it) {
         const mo = hollylandMars400s(sp); mo.position.y = h; mo.rotation.y = yaw; grp.add(mo);
     } else if (typeof gripArmSet === 'function' && isGripArmSet(eq)) {   // ── 그립암 세트 (VL-40GA) ──
         const arm = gripArmSet(sp); arm.position.y = h + 0.06; arm.rotation.y = yaw; grp.add(arm);
+    } else if (typeof valensAClamp === 'function' && isAClamp(eq)) {     // ── A클램프 ──
+        const cl = valensAClamp(sp); cl.position.y = h + 0.05; cl.rotation.y = yaw; grp.add(cl);
+    } else if (typeof gentreeECubeVMount === 'function' && isECubeBat(eq)) {  // ── V마운트 배터리 (E-CUBE) ──
+        const b = gentreeECubeVMount(sp); b.position.y = h + sp.h / 2; b.rotation.y = yaw; grp.add(b);
+    } else if (typeof nanliteBtBgV === 'function' && isBtBgV(eq)) {      // ── 배터리 그립 (BT-BG-V) ──
+        const b = nanliteBtBgV(sp); b.position.y = h; b.rotation.y = yaw; grp.add(b);
+    } else if (typeof rocknrollerR12rt === 'function' && isRnrCart(eq)) {  // ── 멀티카트 (R12RT) ──
+        const c = rocknrollerR12rt(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
+    } else if (typeof vendictRoverWagon === 'function' && isRoverWagon(eq)) {  // ── 웨건 (ROVER) ──
+        const w = vendictRoverWagon(sp); w.position.y = h; w.rotation.y = yaw; grp.add(w);
     } else {                                      // ── 바닥 물건 ──
         const body = addMesh(grp, new THREE.BoxGeometry(sp.w, sp.h, sp.d),
             mat(0x2b3037, { roughness: 0.75, metalness: 0.2 }), 0, h + sp.h / 2, 0);

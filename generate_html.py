@@ -7435,6 +7435,16 @@ function buildItemMesh(eq, it) {
         const mo = hollylandMars400s(sp); mo.position.y = h; mo.rotation.y = yaw; grp.add(mo);
     } else if (typeof gripArmSet === 'function' && isGripArmSet(eq)) {   // ── 그립암 세트 (VL-40GA) ──
         const arm = gripArmSet(sp); arm.position.y = h + 0.06; arm.rotation.y = yaw; grp.add(arm);
+    } else if (typeof valensAClamp === 'function' && isAClamp(eq)) {     // ── A클램프 ──
+        const cl = valensAClamp(sp); cl.position.y = h + 0.05; cl.rotation.y = yaw; grp.add(cl);
+    } else if (typeof gentreeECubeVMount === 'function' && isECubeBat(eq)) {  // ── V마운트 배터리 (E-CUBE) ──
+        const b = gentreeECubeVMount(sp); b.position.y = h + sp.h / 2; b.rotation.y = yaw; grp.add(b);
+    } else if (typeof nanliteBtBgV === 'function' && isBtBgV(eq)) {      // ── 배터리 그립 (BT-BG-V) ──
+        const b = nanliteBtBgV(sp); b.position.y = h; b.rotation.y = yaw; grp.add(b);
+    } else if (typeof rocknrollerR12rt === 'function' && isRnrCart(eq)) {  // ── 멀티카트 (R12RT) ──
+        const c = rocknrollerR12rt(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
+    } else if (typeof vendictRoverWagon === 'function' && isRoverWagon(eq)) {  // ── 웨건 (ROVER) ──
+        const w = vendictRoverWagon(sp); w.position.y = h; w.rotation.y = yaw; grp.add(w);
     } else {                                      // ── 바닥 물건 ──
         const body = addMesh(grp, new THREE.BoxGeometry(sp.w, sp.h, sp.d),
             mat(0x2b3037, { roughness: 0.75, metalness: 0.2 }), 0, h + sp.h / 2, 0);

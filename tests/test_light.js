@@ -7,6 +7,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
  isPavoTube,pavoTubeII6c,nanliteFc500c,isInsta360,insta360X3,djiRs4Pro,
  isCableReel,isMarsM1,isMars400,isGripArmSet,seiseX1Reel,hollylandMarsM1,hollylandMars400s,gripArmSet,
+ isAClamp,isECubeBat,isBtBgV,isRnrCart,isRoverWagon,valensAClamp,gentreeECubeVMount,nanliteBtBgV,rocknrollerR12rt,vendictRoverWagon,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -155,6 +156,33 @@ t('PWR-001 dispatch 전용 모델', nodes(build('PWR-001'))>=5);
 t('MON-002 dispatch 전용 모델', nodes(build('MON-002'))>=5);
 t('ACC-005 dispatch 전용 모델', nodes(build('ACC-005'))>=5);
 t('ACC-001 dispatch 전용 모델', nodes(build('ACC-001'))>=4);
+
+console.log('=== 12. 추가 자산 모델 (클램프·배터리·그립·카트·웨건) ===');
+// 인식(자산번호 일치)
+t('A클램프 인식(ACC-012/013/014)', A.isAClamp({id:'ACC-012'}) && A.isAClamp({id:'ACC-013'}) && A.isAClamp({id:'ACC-014'}));
+t('E-CUBE 배터리 인식(BAT-V-001~003, 004 제외)', A.isECubeBat({id:'BAT-V-001'}) && A.isECubeBat({id:'BAT-V-003'}) && !A.isECubeBat({id:'BAT-V-004',product:'FXLION'}));
+t('배터리 그립 인식(PWR-005, 004 아님)', A.isBtBgV({id:'PWR-005'}) && !A.isBtBgV({id:'PWR-004',product:'BH-FZ260-V'}));
+t('카트 인식(ETC-001)', A.isRnrCart({id:'ETC-001'}) && A.isRnrCart({product:'RockNRoller R12RT'}));
+t('웨건 인식(ETC-003)', A.isRoverWagon({id:'ETC-003'}) && A.isRoverWagon({product:'VENDICT ROVER 왜건'}));
+// SPECS(서버 덮어쓰기 방어 대상)
+t('ACC-012 9인치 vs ACC-013 6인치', A.specOf('ACC-012').size===9 && A.specOf('ACC-013').size===6);
+t('BAT-V-001 실측(97×146×78)', (()=>{const s=A.specOf('BAT-V-001');return near(s.w,0.097)&&near(s.h,0.146);})());
+t('PWR-005 실측', (()=>{const s=A.specOf('PWR-005');return near(s.w,0.102)&&near(s.h,0.1565);})());
+t('ETC-001 카트 치수', (()=>{const s=A.specOf('ETC-001');return near(s.d,1.321)&&near(s.h,1.054);})());
+t('ETC-003 웨건 치수', (()=>{const s=A.specOf('ETC-003');return near(s.w,0.600);})());
+// 빌더 메시
+t('A클램프 빌더 메시', nodes(A.valensAClamp(A.specOf('ACC-012')))>=4);
+t('E-CUBE 빌더 메시', nodes(A.gentreeECubeVMount(A.specOf('BAT-V-001')))>=5);
+t('배터리 그립 빌더 메시', nodes(A.nanliteBtBgV(A.specOf('PWR-005')))>=5);
+t('카트 빌더 메시 다수', nodes(A.rocknrollerR12rt(A.specOf('ETC-001')))>=5, nodes(A.rocknrollerR12rt(A.specOf('ETC-001'))));
+{ const d=dim(A.rocknrollerR12rt(A.specOf('ETC-001'))); t('카트는 앞뒤로 긺(1m+)', d.z>1.0, JSON.stringify(d)); }
+t('웨건 빌더 메시 다수', nodes(A.vendictRoverWagon(A.specOf('ETC-003')))>=5, nodes(A.vendictRoverWagon(A.specOf('ETC-003'))));
+// dispatch 연결(일반 박스 대신 전용)
+t('ACC-012 dispatch 전용', nodes(build('ACC-012'))>=4);
+t('BAT-V-001 dispatch 전용', nodes(build('BAT-V-001'))>=5);
+t('PWR-005 dispatch 전용', nodes(build('PWR-005'))>=5);
+t('ETC-001 dispatch 전용', nodes(build('ETC-001'))>=5);
+t('ETC-003 dispatch 전용', nodes(build('ETC-003'))>=6);
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
