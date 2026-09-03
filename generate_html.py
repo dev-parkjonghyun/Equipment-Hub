@@ -7441,6 +7441,8 @@ function buildItemMesh(eq, it) {
         const b = nanliteBtBgV(sp); b.position.y = h; b.rotation.y = yaw; grp.add(b);
     } else if (typeof rocknrollerR12rt === 'function' && isRnrCart(eq)) {  // ── 멀티카트 (R12RT) ──
         const c = rocknrollerR12rt(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
+    } else if (typeof handTruck2in1 === 'function' && isHandTruck(eq)) {  // ── 구르마 (2in1 핸드트럭) ──
+        const c = handTruck2in1(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
     } else if (typeof vendictRoverWagon === 'function' && isRoverWagon(eq)) {  // ── 웨건 (ROVER) ──
         const w = vendictRoverWagon(sp); w.position.y = h; w.rotation.y = yaw; grp.add(w);
     } else {                                      // ── 바닥 물건 ──

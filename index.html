@@ -8306,6 +8306,61 @@ function vendictRoverWagon(sp) {
     return g;
 }
 
+// ── handTruck2in1 — 2in1 접이식 구르마(핸드트럭↔플랫폼) → ETC-002 ──
+function handTruck2in1(sp) {
+    const g = new THREE.Group();
+    const isPlat = sp.mode === 'platform';
+    const R = sp.rearD / 2, cR = sp.casterD / 2;
+    const xRail = sp.frameW / 2 - 0.014, xW = sp.w / 2 - sp.rearW / 2;
+    const alu = M.alu(), aluDk = M.aluDk(), tyre = M.rubber();
+    const hub = mat(0x3a3f46, { roughness: 0.5, metalness: 0.45 });
+    const grip = mat(0x1a1c20, { roughness: 0.92, metalness: 0 });
+    const deckM = mat(0x8d949c, { roughness: 0.42, metalness: 0.80 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 12) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const cylY = (r, len, x, y, z, seg = 8) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const tyres = [], hubs = [];
+    for (const s of [-1, 1]) { tyres.push(cylX(R, sp.rearW, s * xW, R, 0, 12)); hubs.push(cylX(R * 0.46, sp.rearW + 0.002, s * xW, R, 0, 10)); }
+    g.add(new THREE.Mesh(geoBatch(tyres), tyre)); g.add(new THREE.Mesh(geoBatch(hubs), hub));
+    g.add(new THREE.Mesh(geoBatch([cylX(0.010, sp.w - 0.06, 0, R, 0, 8)]), aluDk));
+    const fr = new THREE.Group();
+    if (isPlat) { fr.position.set(0, sp.deckY, 0.100); fr.rotation.x = -Math.PI / 2; } else { fr.position.set(0, 0.020, -0.020); }
+    g.add(fr);
+    const L = sp.lowerLen, rail = [];
+    for (const s of [-1, 1]) rail.push(box(0.028, L, 0.024, s * xRail, L / 2, 0));
+    for (const y of [0.06, L * 0.42, L - 0.03]) rail.push(box(xRail * 2, 0.022, 0.020, 0, y, 0));
+    rail.push(box(xRail * 2 + 0.028, L - 0.04, 0.006, 0, L / 2, 0.015));
+    fr.add(new THREE.Mesh(geoBatch(rail), alu));
+    fr.add(new THREE.Mesh(geoBatch([box(0.030, 0.060, 0.040, -xRail, 0.030, -0.024), box(0.030, 0.060, 0.040, xRail, 0.030, -0.024)]), aluDk));
+    const hg = new THREE.Group(); hg.position.set(0, L, 0); hg.rotation.x = isPlat ? Math.PI / 2 : 0; fr.add(hg);
+    const HL = sp.handleLen, hb = [];
+    for (const s of [-1, 1]) hb.push(box(0.026, HL, 0.022, s * xRail, HL / 2, 0));
+    hb.push(box(xRail * 2 + 0.026, 0.026, 0.022, 0, HL - 0.013, 0));
+    hb.push(box(xRail * 2, 0.020, 0.018, 0, HL * 0.45, 0));
+    hg.add(new THREE.Mesh(geoBatch(hb), alu));
+    const gp = new THREE.Mesh(new THREE.BoxGeometry(xRail * 1.5, 0.028, 0.026), grip); gp.position.set(0, HL - 0.013, 0); hg.add(gp);
+    const ng = new THREE.Group(); ng.position.set(0, 0.014, 0.014); ng.rotation.x = isPlat ? -Math.PI / 2 : 0; fr.add(ng);
+    ng.add(new THREE.Mesh(geoBatch([
+        box(sp.noseW, 0.010, sp.noseD, 0, 0, sp.noseD / 2 + 0.004),
+        box(sp.noseW - 0.06, 0.014, 0.018, 0, 0.008, sp.noseD - 0.010),
+    ]), deckM));
+    if (isPlat) {
+        const zC = 0.100 - L + 0.090, legs = [], ct = [], ch = [];
+        for (const s of [-1, 1]) {
+            legs.push(box(0.024, sp.deckY - cR * 2 - 0.010, 0.024, s * xRail, (sp.deckY + cR * 2 - 0.010) / 2, zC));
+            legs.push(box(0.052, 0.012, 0.052, s * xRail, cR * 2 + 0.006, zC));
+            legs.push(cylY(0.012, 0.016, s * xRail, cR * 2 - 0.004, zC, 8));
+            ct.push(cylX(cR, 0.030, s * xRail, cR, zC, 10)); ch.push(cylX(cR * 0.45, 0.032, s * xRail, cR, zC, 8));
+        }
+        g.add(new THREE.Mesh(geoBatch(legs), aluDk)); g.add(new THREE.Mesh(geoBatch(ct), tyre)); g.add(new THREE.Mesh(geoBatch(ch), hub));
+    } else {
+        const st = [], ct = [];
+        for (const s of [-1, 1]) { st.push(box(0.022, 0.120, 0.022, s * xRail, L * 0.62, -0.030)); ct.push(cylX(cR, 0.030, s * xRail, L * 0.62 - 0.076, -0.036, 10)); }
+        fr.add(new THREE.Mesh(geoBatch(st), aluDk)); fr.add(new THREE.Mesh(geoBatch(ct), tyre));
+    }
+    return g;
+}
+
 // ── SPECS 등록 (실제 자산 id) — 제조사 공식 치수 ─────────────────────────────
 // NANLITE Forza 60B / 60B Ⅱ : 본체 247×134×87mm
 [['LIT-005'], ['LIT-006']].forEach(([id]) => {
@@ -8419,6 +8474,9 @@ SPECS['PWR-005'] = { w: 0.1020, h: 0.1565, d: 0.0935, railGap: 0.086, railLen: 0
 // RockNRoller R12RT 멀티카트 → ETC-001
 SPECS['ETC-001'] = { w: 0.343, h: 1.054, d: 1.321, ext: 1, handle: 1, lenMin: 0.864, lenMax: 1.321,
     rearD: 0.254, rearW: 0.076, frontD: 0.203, frontW: 0.051, yRail: 0.165, pivotY: 0.290, src: 'est' };
+// 2in1 접이식 구르마(핸드트럭↔플랫폼) → ETC-002
+SPECS['ETC-002'] = { w: 0.500, h: 1.250, d: 0.550, mode: 'upright', rearD: 0.254, rearW: 0.050,
+    casterD: 0.100, frameW: 0.400, lowerLen: 0.760, handleLen: 0.470, noseW: 0.500, noseD: 0.280, deckY: 0.285, src: 'est' };
 // VENDICT ROVER 캠핑 웨건 → ETC-003
 SPECS['ETC-003'] = { w: 0.600, h: 0.950, d: 0.950, handleDeg: 90, handleLen: 0.350, color: 'black',
     wheelD: 0.255, wheelW: 0.100, tubW: 0.530, tubD: 0.870, tubH: 0.325, floorY: 0.275, src: 'est' };
@@ -8461,6 +8519,8 @@ function isECubeBat(eq) { return eq && (['BAT-V-001','BAT-V-002','BAT-V-003'].in
 function isBtBgV(eq) { return eq && (eq.id === 'PWR-005' || /bt-?bg-?v/i.test(eq.product || '')); }
 // RockNRoller 멀티카트 → ETC-001
 function isRnrCart(eq) { return eq && (eq.id === 'ETC-001' || /rocknroller|r12rt|멀티\s*카트|카트/i.test(eq.product || '')); }
+// 2in1 접이식 구르마(핸드트럭) → ETC-002
+function isHandTruck(eq) { return eq && (eq.id === 'ETC-002' || /구르마|핸드\s*트럭|hand\s*truck|2in1/i.test(eq.product || '')); }
 // VENDICT ROVER 웨건 → ETC-003
 function isRoverWagon(eq) { return eq && (eq.id === 'ETC-003' || /rover|웨건|왜건|wagon/i.test(eq.product || '')); }
 
@@ -9401,6 +9461,8 @@ function buildItemMesh(eq, it) {
         const b = nanliteBtBgV(sp); b.position.y = h; b.rotation.y = yaw; grp.add(b);
     } else if (typeof rocknrollerR12rt === 'function' && isRnrCart(eq)) {  // ── 멀티카트 (R12RT) ──
         const c = rocknrollerR12rt(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
+    } else if (typeof handTruck2in1 === 'function' && isHandTruck(eq)) {  // ── 구르마 (2in1 핸드트럭) ──
+        const c = handTruck2in1(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
     } else if (typeof vendictRoverWagon === 'function' && isRoverWagon(eq)) {  // ── 웨건 (ROVER) ──
         const w = vendictRoverWagon(sp); w.position.y = h; w.rotation.y = yaw; grp.add(w);
     } else {                                      // ── 바닥 물건 ──
