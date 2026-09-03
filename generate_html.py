@@ -7323,14 +7323,12 @@ function buildItemMesh(eq, it) {
                 const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
             } else if (isNanlink(eq)) {      // NANLINK BOX 무선 트랜스미터 (소형 박스)
                 const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
+            } else if (isPtGrid(eq) && typeof ecPtii6c === 'function') {  // PavoTube 소프트박스(에그크레이트)
+                const gr = ecPtii6c(sp); gr.position.y = sp.h * 0.5; head.add(gr);
             } else if (sp.kind === 'flag') {  // 프레임 원단 디퓨저·플랙 (납작한 사각 프레임)
                 const y0 = sp.h * 0.5;
                 addMesh(head, new THREE.BoxGeometry(sp.w + 0.03, sp.h + 0.03, 0.012), M.aluDk(), 0, y0, -0.008);
                 addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, Math.max(0.008, sp.d)), M.diff(), 0, y0, 0, false);
-            } else if (sp.kind === 'boxSoft') {  // 긴 사각 소프트박스 (PavoTube 용)
-                const y0 = sp.h * 0.5;
-                addMesh(head, new THREE.BoxGeometry(sp.w, sp.h, sp.d * 0.7), M.black(), 0, y0, -sp.d * 0.15);
-                addMesh(head, new THREE.BoxGeometry(sp.w * 0.9, sp.h * 0.92, 0.01), M.diff(), 0, y0, sp.d * 0.5, false);
             } else {
                 const sb = parabolicSoftbox(Math.max(0.25, sp.w * 0.6), Math.max(0.22, sp.d), 16);
                 sb.rotation.x = Math.PI / 2;

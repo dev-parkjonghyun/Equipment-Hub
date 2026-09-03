@@ -5,7 +5,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  isForza60B,isAD300Pro,isFresnelMod,isAStandPro,isCStandPro,isTerisTripod,geoBatch,
  fs60bHead,ad300ProIIHead,pjFmmBody,fl11Fresnel,valensPro403a,valensPro40t,terisTsn6cfTripod,
  isPavoSlim,isMixPanel,isV1Flash,isNanlink,pavoSlim240bPanel,mixPanel150,godoxV1,nanlinkBoxWsTb1,
- isPavoTube,pavoTubeII6c,nanliteFc500c,isInsta360,insta360X3,djiRs4Pro,
+ isPavoTube,pavoTubeII6c,nanliteFc500c,isInsta360,insta360X3,djiRs4Pro,isPtGrid,ecPtii6c,
  isCableReel,isMarsM1,isMars400,isGripArmSet,seiseX1Reel,hollylandMarsM1,hollylandMars400s,gripArmSet,
  isAClamp,isECubeBat,isBtBgV,isRnrCart,isRoverWagon,valensAClamp,gentreeECubeVMount,nanliteBtBgV,rocknrollerR12rt,vendictRoverWagon,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
@@ -127,10 +127,11 @@ t('Sony 카메라는 Insta360 아님', !A.isInsta360({id:'CAM-003',product:'Sony
 t('Insta360 빌더 메시 생성', nodes(A.insta360X3(A.specOf('CAM-006')))>=3);
 { const d=dim(A.insta360X3(A.specOf('CAM-006'))); t('세로로 긴 바디(360캠)', d.y>d.x && d.y>d.z, JSON.stringify(d)); }
 
-console.log('=== 10. MOD-008/009 형태 보정 ===');
-t('MOD-008 긴 소프트박스 SPECS', (()=>{const s=A.specOf('MOD-008');return s.kind==='boxSoft' && s.h>s.w;})());
+console.log('=== 10. MOD-008(에그크레이트)/009 형태 ===');
+t('MOD-008 = PavoTube 에그크레이트(6칸) 매핑', (()=>{const s=A.specOf('MOD-008');return s.kind==='ptgrid' && s.cells===6 && A.isPtGrid({id:'MOD-008'});})());
 t('MOD-009 납작 플랙 SPECS', (()=>{const s=A.specOf('MOD-009');return s.kind==='flag' && s.d<=0.05;})());
-t('MOD-008 메시 생성', nodes(build('MOD-008'))>=1);
+t('MOD-008 그리드 메시 다수(칸막이)', nodes(build('MOD-008'))>=2);
+{ const d=dim(A.ecPtii6c(A.specOf('MOD-008'))); t('MOD-008 가로로 긴 그리드(빌더)', d.x>0.2 && d.x>d.y*3, JSON.stringify(d)); }
 t('MOD-009 메시 생성(납작)', (()=>{const d=dim(build('MOD-009'));return nodes(build('MOD-009'))>=1 && d.z < d.x && d.z < d.y;})());
 
 console.log('=== 11. 신규 자산 모델 (전선릴·Mars·그립암, 자산번호 일치) ===');

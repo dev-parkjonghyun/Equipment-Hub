@@ -1205,6 +1205,31 @@ function pavoTubeII6c(sp) {
     return g;
 }
 
+// ── ecPtii6c — NANLITE EC-PTII6C 에그크레이트(파보튜브 소프트박스) → MOD-008 ──
+//   (출처: LIT-008_PavoTubeII6C/MOD-004, 사용자 지정: MOD-008 로 매핑)
+function ecPtii6c(sp) {
+    const g = new THREE.Group();
+    const L = sp.w, HL = L / 2, HW = sp.h / 2, D = sp.d, T = sp.wall || 0.0016;
+    const cloth = M.sbOut();
+    const velcro = mat(0x2a2c30, { roughness: 0.95, metalness: 0.0 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const parts = [];
+    for (const s of [-1, 1]) parts.push(box(L, T, D, 0, s * (HW - T / 2), D / 2));
+    for (const s of [-1, 1]) parts.push(box(T, sp.h - T * 2, D, s * (HL - T / 2), 0, D / 2));
+    for (let i = 1; i < (sp.cells || 6); i++) {
+        const x = -HL + (L / (sp.cells || 6)) * i;
+        parts.push(box(T, sp.h - T * 2, D, x, 0, D / 2));
+    }
+    g.add(new THREE.Mesh(geoBatch(parts), cloth));
+    const strap = [];
+    for (const s of [-1, 1]) {
+        strap.push(box(0.003, sp.h + 0.004, 0.010, s * (HL - 0.0015), 0, 0.004));
+        strap.push(box(0.003, sp.h + 0.004, 0.040, s * (HL - 0.0015), 0, -0.020));
+    }
+    g.add(new THREE.Mesh(geoBatch(strap), velcro));
+    return g;
+}
+
 // ── djiRs4Pro — DJI RS 4 Pro 짐벌 (그립 바닥 원점, plate=[x,y,z] 카메라 자리) → GIM-001 ──
 //   (출처: GMB-001_RS4Pro/GMB-001_threejs.js, 제품명 기준 매핑)
 function gmRoundedRect(hw, hh, r) {
@@ -1877,8 +1902,9 @@ SPECS['GIM-001'] = { w: 0.2678, h: 0.415, d: 0.2019, src: 'spec', kind: 'gimbal'
 // INSTA360 X3 360캠 → CAM-006 (신규 자산)
 SPECS['CAM-006'] = { w: 0.046, h: 0.114, d: 0.0331, bodyD: 0.0240, src: 'spec', cornerR: 0.011,
     lensDomeR: 0.0215, lensCapDeg: 38, lensY: 0.0905, screenW: 0.03416, screenH: 0.04727 };
-// PavoTube 소프트박스(긴 사각) → MOD-008 / 프레임 원단 디퓨저·플랙(납작 프레임) → MOD-009
-SPECS['MOD-008'] = { w: 0.16, h: 0.62, d: 0.16, kind: 'boxSoft', src: 'est' };
+// PavoTube 소프트박스 = EC-PTII6C 에그크레이트 → MOD-008 (실측 250×38×45mm, 6칸)
+SPECS['MOD-008'] = { w: 0.250, h: 0.038, d: 0.045, cells: 6, wall: 0.0016, kind: 'ptgrid', src: 'est' };
+// 프레임 원단 디퓨저·플랙(납작 프레임) → MOD-009
 SPECS['MOD-009'] = { w: 0.75, h: 0.90, d: 0.03, kind: 'flag', src: 'est' };
 
 // VALENS VL-3000G 3.2m 이동 배경용 크로스바 → ACC-006 (지름·무게는 실측 추정)
@@ -1938,6 +1964,8 @@ function isV1Flash(eq) { return eq && (eq.id === 'LIT-010' || /godox.*v1|고독�
 function isNanlink(eq) { return eq && (eq.id === 'MOD-006' || /nanlink|ws-?tb/i.test(eq.product || '')); }
 // PavoTube 튜브 조명(PavoSlim 과 구분) → LIT-007/008
 function isPavoTube(eq) { return eq && (['LIT-007','LIT-008'].includes(eq.id) || /pavotube/i.test(eq.product || '')); }
+// PavoTube 소프트박스(에그크레이트) → MOD-008
+function isPtGrid(eq) { return eq && (eq.id === 'MOD-008' || /pavotube.*(softbox|소프트박스|에그|grid)|eggcrate|ec-?ptii/i.test(eq.product || '')); }
 // INSTA360 X3 360캠(제품명 우선) → CAM-006 또는 이름 매칭
 function isInsta360(eq) { return eq && (eq.id === 'CAM-006' || /insta\s*?360|\bx3\b/i.test(eq.product || '')); }
 // SEISE 전선릴 → PWR-001/002/003
