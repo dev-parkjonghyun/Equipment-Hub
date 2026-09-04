@@ -7445,6 +7445,12 @@ function buildItemMesh(eq, it) {
         const c = handTruck2in1(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
     } else if (typeof vendictRoverWagon === 'function' && isRoverWagon(eq)) {  // ── 웨건 (ROVER) ──
         const w = vendictRoverWagon(sp); w.position.y = h; w.rotation.y = yaw; grp.add(w);
+    } else if (typeof kupoKsf15ShotBag === 'function' && isShotBag(eq)) {  // ── 샷백/샌드백 ──
+        const b = kupoKsf15ShotBag(sp); b.position.y = h; b.rotation.y = yaw; grp.add(b);
+    } else if (typeof hollylandSolidcomSe === 'function' && isSolidcom(eq)) {  // ── 인터컴 헤드셋 ──
+        const c = hollylandSolidcomSe(sp); c.position.y = h; c.rotation.y = yaw; grp.add(c);
+    } else if (typeof epsonPictureMatePm401 === 'function' && isPhotoPrinter(eq)) {  // ── 포토 프린터 ──
+        const p = epsonPictureMatePm401(sp); p.position.y = h; p.rotation.y = yaw; grp.add(p);
     } else {                                      // ── 바닥 물건 ──
         const body = addMesh(grp, new THREE.BoxGeometry(sp.w, sp.h, sp.d),
             mat(0x2b3037, { roughness: 0.75, metalness: 0.2 }), 0, h + sp.h / 2, 0);

@@ -1023,6 +1023,17 @@
     "status": "정상"
   },
   {
+    "id": "ETC-012",
+    "nick": "",
+    "cat": "ETC",
+    "catLabel": "기타(ETC)",
+    "sub": "포토 프린터",
+    "product": "EPSON PictureMate PM-401",
+    "brand": "EPSON",
+    "model": "PM-401",
+    "status": "정상"
+  },
+  {
     "id": "ACC-008",
     "nick": "",
     "cat": "ACC",

@@ -23,20 +23,20 @@ t('목록 화면만 표시', H.store['list-wrap'].style.display==='block'
   && H.store['canvas-wrap'].style.display==='none' && H.store['three-wrap'].style.display==='none');
 t('목록 툴바만 표시', H.store['list-tools'].style.display==='inline-flex'
   && H.store['layout-tools'].style.display==='none');
-t('전체 112개 표시', nRows()===112, nRows());
+t('전체 113개 표시', nRows()===113, nRows());
 
 console.log('=== 2. 요약 카드 ===');
 const sum=()=>H.store['list-summary'].innerHTML;
-t('전체 장비 수', sum().includes('>112<'));
+t('전체 장비 수', sum().includes('>113<'));
 t('수리 필요 2건', /수리 필요<\/span><span class="v">2</.test(sum()));
 t('별칭 붙은 것 카운트', /별칭 붙은 것<\/span><span class="v">\d+</.test(sum()));
-t('이름 어려움만 별도 표시', /이름 어려움<\/span><span class="v">7</.test(sum()), (sum().match(/이름 어려움<\/span><span class="v">(\d+)</)||[])[1]);
-t('보관위치 없음 112건', /보관위치 없음<\/span><span class="v">112</.test(sum()));
+t('이름 어려움만 별도 표시', /이름 어려움<\/span><span class="v">8</.test(sum()), (sum().match(/이름 어려움<\/span><span class="v">(\d+)</)||[])[1]);
+t('보관위치 없음 113건', /보관위치 없음<\/span><span class="v">113</.test(sum()));
 t('빈 곳은 경고색', sum().includes('lsum gap'));
 
 console.log('=== 3. 검색 · 필터 · 정렬 ===');
 L.q='sony'; A.renderList();
-t('제품명 검색', nRows()>0 && nRows()<112, nRows());
+t('제품명 검색', nRows()>0 && nRows()<113, nRows());
 L.q='CAM-001'; A.renderList();
 t('자산번호 검색', nRows()===1, nRows());
 L.q='24-70'; A.renderList();
@@ -69,7 +69,7 @@ A.setEq('CAM-001','note','24-70 상시 물림');
 t('비고 입력', cam.note==='24-70 상시 물림');
 A.renderList();
 t('요약 즉시 반영', /별칭 붙은 것<\/span><span class="v">6</.test(sum()), (sum().match(/별칭 붙은 것<\/span><span class="v">(\d+)</)||[])[1]);
-t('보관위치 카운트 반영', /보관위치 없음<\/span><span class="v">111</.test(sum()));
+t('보관위치 카운트 반영', /보관위치 없음<\/span><span class="v">112</.test(sum()));
 // 상태 순환
 const st0=cam.status;
 A.cycleStatus('CAM-001'); t('상태 클릭 → 수리필요', cam.status==='수리필요', cam.status);
@@ -121,7 +121,7 @@ t('같은 제품 묶임', g.some(x=>x.items.length===4), g.filter(x=>x.items.len
 t('A 스탠드 4개 묶임', g.find(x=>x.key==='A 스탠드').items.length===4);
 t('수량 뱃지 표시', body().includes('class="lqty">×4'));
 L.group=false; A.renderList();
-t('풀면 개별 표시', nRows()===112);
+t('풀면 개별 표시', nRows()===113);
 
 console.log('=== 7. 선택 → 세트 ===');
 SEL.clear();
@@ -165,7 +165,7 @@ t('세트로 저장 버튼', html.includes('selToSet()'));
 A.switchMode('layout');
 t('배치도 전환 정상', H.store['canvas-wrap'].style.display==='block');
 A.switchMode('list');
-t('목록 복귀 정상', nRows()===112, nRows());
+t('목록 복귀 정상', nRows()===113, nRows());
 
 console.log('=== 10. 이름 표기 정책 ===');
 t('별칭 없으면 정리한 제품명', A.dispName({id:'X',product:'Sony Fx3'})==='Fx3');
@@ -195,7 +195,7 @@ t('구매일·가격은 건드리지 않음', !/exportChangesCSV[\s\S]{0,700}구
 t('변경 없으면 안내', html.includes("alert('아직 고친 내용이 없습니다.')"));
 t('같은 제품 여러 대 카드', sum().includes('같은 제품 여러 대'));
 { A.ls().only='dup'; A.renderList();
-  t('중복 제품만 걸러보기', nRows()>0 && nRows()<112, nRows());
+  t('중복 제품만 걸러보기', nRows()>0 && nRows()<113, nRows());
   A.ls().only=''; A.ls().group=false; A.renderList(); }
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');

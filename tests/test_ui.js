@@ -72,7 +72,7 @@ A.switchTab('sets');
 t('switchTab(sets) → 세트 패널', A.pane==='sets');
 A.switchTab('equip');
 t('switchTab(equip) → 장비 패널', A.pane==='equip');
-t('팔레트 목록 유지', (H.store['palette-list'].innerHTML.match(/eq-card/g)||[]).length===112);
+t('팔레트 목록 유지', (H.store['palette-list'].innerHTML.match(/eq-card/g)||[]).length===113);
 t('상태 저장', A.st().pane==='equip');
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');

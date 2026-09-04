@@ -9,6 +9,7 @@ const H=makeHarness(`cobHeadMesh,isForza500,lanternMesh,isLanternSoftbox,project
  isCableReel,isMarsM1,isMars400,isGripArmSet,seiseX1Reel,hollylandMarsM1,hollylandMars400s,gripArmSet,
  isAClamp,isECubeBat,isBtBgV,isRnrCart,isRoverWagon,valensAClamp,gentreeECubeVMount,nanliteBtBgV,rocknrollerR12rt,vendictRoverWagon,
  isHandTruck,handTruck2in1,
+ isShotBag,isSolidcom,isPhotoPrinter,kupoKsf15ShotBag,hollylandSolidcomSe,epsonPictureMatePm401,
  buildItemMesh,specOf,defaultHeight,isTriflector,T:()=>THREE,EQ:()=>EQUIPMENT`,{runTimers:true});
 const A=H.api, THREE=A.T();
 let pass=0,fail=0;
@@ -190,6 +191,24 @@ t('PWR-005 dispatch 전용', nodes(build('PWR-005'))>=5);
 t('ETC-001 dispatch 전용', nodes(build('ETC-001'))>=5);
 t('ETC-003 dispatch 전용', nodes(build('ETC-003'))>=6);
 t('ETC-002 dispatch 전용', nodes(build('ETC-002'))>=6);
+
+console.log('=== 13. 샷백·인터컴·프린터 (자산번호/제품명 매핑) ===');
+t('샷백 인식(ETC-005~008)', A.isShotBag({id:'ETC-005'}) && A.isShotBag({id:'ETC-008'}) && A.isShotBag({product:'KUPO 샌드백'}));
+t('Solidcom 인식(ACC-004, 제품명)', A.isSolidcom({id:'ACC-004'}) && A.isSolidcom({product:'HOLLYLAND Solidcom SE'}));
+t('프린터 인식(ETC-012)', A.isPhotoPrinter({id:'ETC-012'}) && A.isPhotoPrinter({product:'EPSON PictureMate PM-401'}));
+// SPECS(서버 덮어쓰기 방어)
+t('ETC-006 샷백 실측(127×70×279)', (()=>{const s=A.specOf('ETC-006');return near(s.w,0.127)&&near(s.d,0.279);})());
+t('ACC-004 인터컴 SPECS', (()=>{const s=A.specOf('ACC-004');return near(s.cupD,0.096)&&s.role==='master';})());
+t('ETC-012 프린터 SPECS', (()=>{const s=A.specOf('ETC-012');return near(s.w,0.249);})());
+// 빌더 메시
+t('샷백 빌더 메시', nodes(A.kupoKsf15ShotBag(A.specOf('ETC-006')))>=3);
+t('인터컴 빌더 메시 다수', nodes(A.hollylandSolidcomSe(A.specOf('ACC-004')))>=6);
+t('프린터 빌더 메시 다수', nodes(A.epsonPictureMatePm401(A.specOf('ETC-012')))>=5);
+// dispatch 연결
+t('ETC-006 dispatch 전용(샷백)', nodes(build('ETC-006'))>=3);
+t('ACC-004 dispatch 전용(인터컴)', nodes(build('ACC-004'))>=6);
+t('ETC-012 dispatch 전용(프린터)', nodes(build('ETC-012'))>=5);
+t('ETC-012 장비 목록에 등록', !!A.EQ().find(e=>e.id==='ETC-012'));
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);

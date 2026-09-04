@@ -1884,6 +1884,156 @@ function handTruck2in1(sp) {
     return g;
 }
 
+// ── kupoKsf15ShotBag — KUPO KSF-15 샷백/샌드백 → ETC-005/006/007/008 ──
+function slabGeo(hx, hz, thick, r) {
+    r = r || 0.009;
+    const s = new THREE.Shape();
+    s.moveTo(-hx + r, -hz);
+    s.lineTo(hx - r, -hz); s.quadraticCurveTo(hx, -hz, hx, -hz + r);
+    s.lineTo(hx, hz - r);  s.quadraticCurveTo(hx, hz, hx - r, hz);
+    s.lineTo(-hx + r, hz); s.quadraticCurveTo(-hx, hz, -hx, hz - r);
+    s.lineTo(-hx, -hz + r); s.quadraticCurveTo(-hx, -hz, -hx + r, -hz);
+    const geo = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: false, curveSegments: 1 });
+    geo.rotateX(-Math.PI / 2); return geo;
+}
+function kupoKsf15ShotBag(sp) {
+    const g = new THREE.Group();
+    const LABEL = { blue: 0x2f5fa8, red: 0xa8332f, yellow: 0xb99321 };
+    const isSaddle = sp.mode === 'saddle';
+    const cloth = mat(0x1a1c1f, { roughness: 0.95, metalness: 0 });
+    const seam = mat(0x2b2e33, { roughness: 0.90, metalness: 0.02 });
+    const strap = mat(0x33373d, { roughness: 0.86, metalness: 0.03 });
+    const tag = mat(LABEL[sp.labelColor] || LABEL.blue, { roughness: 0.72, metalness: 0 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const put = (geo, x, y, z) => { geo.translate(x, y, z); return { geo }; };
+    if (!isSaddle) {
+        const HX = 0.0635, HZ = 0.060, TH = 0.062, zL = 0.078;
+        const body = [];
+        for (const s of [-1, 1]) body.push(put(slabGeo(HX, HZ, TH), 0, 0, s * zL));
+        body.push(put(slabGeo(0.044, 0.026, 0.030, 0.006), 0, 0, 0));
+        g.add(new THREE.Mesh(geoBatch(body), cloth));
+        const st = [];
+        for (const s of [-1, 1]) { st.push(box(0.113, 0.004, 0.106, 0, TH - 0.001, s * zL)); st.push(box(0.127, 0.005, 0.005, 0, TH * 0.52, s * zL)); }
+        g.add(new THREE.Mesh(geoBatch(st), seam));
+        g.add(new THREE.Mesh(geoBatch([
+            box(0.038, 0.008, 0.086, 0, 0.066, 0), box(0.038, 0.030, 0.008, 0, 0.052, -0.043), box(0.038, 0.030, 0.008, 0, 0.052, 0.043),
+        ]), strap));
+        g.add(new THREE.Mesh(geoBatch([box(0.040, 0.003, 0.026, 0, TH + 0.003, -zL - 0.014)]), tag));
+    } else {
+        const SX = 0.047, SY = 0.100, SZ = 0.127, xL = 0.040;
+        const body = [];
+        for (const s of [-1, 1]) body.push(box(SX, SY, SZ, s * xL, SY / 2, 0));
+        body.push(box(0.108, 0.030, SZ - 0.008, 0, SY + 0.015, 0));
+        g.add(new THREE.Mesh(geoBatch(body), cloth));
+        const st = [];
+        for (const s of [-1, 1]) { st.push(box(SX, 0.005, 0.005, s * xL, SY * 0.50, SZ / 2 - 0.003)); st.push(box(SX, 0.005, 0.005, s * xL, SY * 0.50, -SZ / 2 + 0.003)); st.push(box(0.005, 0.005, SZ - 0.010, s * (xL + SX / 2 - 0.004), SY - 0.004, 0)); }
+        g.add(new THREE.Mesh(geoBatch(st), seam));
+        g.add(new THREE.Mesh(geoBatch([box(0.056, 0.015, 0.032, 0, SY + 0.037, 0)]), strap));
+        g.add(new THREE.Mesh(geoBatch([box(0.003, 0.024, 0.032, -xL - SX / 2 + 0.001, SY * 0.68, 0.020)]), tag));
+    }
+    return g;
+}
+
+// ── hollylandSolidcomSe — HOLLYLAND Solidcom SE 무선 인터컴 → ACC-004 (제품명 일치) ──
+function hollylandSolidcomSe(sp) {
+    const g = new THREE.Group();
+    const cR = sp.cupD / 2, xC = sp.halfSpan, yC = cR, isMaster = sp.role === 'master';
+    const shellM = mat(0x1f2226, { roughness: 0.66, metalness: 0.06 });
+    const padM = mat(0x101215, { roughness: 0.94, metalness: 0 });
+    const bandM = mat(0x2a2e33, { roughness: 0.80, metalness: 0.04 });
+    const knobM = M.knob();
+    const led = isMaster ? mat(0xd8562f, { roughness: 0.35, metalness: 0, emissive: 0x8a2f14, emissiveIntensity: 0.7 })
+        : mat(0x2fbf6a, { roughness: 0.35, metalness: 0, emissive: 0x18804a, emissiveIntensity: 0.7 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 16) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const N = 10, pts = [];
+    for (let i = 0; i <= N; i++) { const t = -1 + (2 * i) / N; pts.push([xC * t, yC + sp.arch * (1 - t * t), 0]); }
+    const bandParts = [];
+    for (let i = 0; i < N; i++) bandParts.push(rod(pts[i], pts[i + 1], 0.0075, 6));
+    g.add(new THREE.Mesh(geoBatch(bandParts), shellM));
+    g.add(new THREE.Mesh(geoBatch([box(0.070, 0.010, 0.026, 0, yC + sp.arch - 0.010, 0)]), bandM));
+    g.add(new THREE.Mesh(geoBatch([box(0.012, 0.038, 0.020, -xC, yC + 0.030, 0), box(0.012, 0.038, 0.020, xC, yC + 0.030, 0)]), knobM));
+    g.add(new THREE.Mesh(geoBatch([cylX(cR, sp.cupW, -xC, yC, 0, 16), cylX(cR * 0.62, 0.010, -xC - sp.cupW / 2 + 0.002, yC, 0, 12)]), shellM));
+    g.add(new THREE.Mesh(geoBatch([cylX(cR * 0.94, 0.016, -xC + sp.cupW / 2 + 0.006, yC, 0, 16)]), padM));
+    const xO = -xC - sp.cupW / 2 - 0.001;
+    g.add(new THREE.Mesh(geoBatch([
+        cylX(0.013, 0.007, xO - 0.003, yC + 0.014, 0.008, 10),
+        box(0.006, 0.010, 0.018, xO - 0.003, yC - 0.014, 0.006),
+        box(0.006, 0.008, 0.014, xO - 0.003, yC - 0.014, -0.018),
+        box(0.005, 0.004, 0.008, xO - 0.002, yC - 0.030, 0.024),
+    ]), knobM));
+    const lp = new THREE.Mesh(new THREE.CircleGeometry(0.004, 10), led);
+    lp.rotation.y = -Math.PI / 2; lp.position.set(xO - 0.006, yC + 0.030, -0.006); g.add(lp);
+    g.add(new THREE.Mesh(geoBatch([cylX(cR * 0.66, 0.018, xC + 0.008, yC, 0, 14)]), shellM));
+    g.add(new THREE.Mesh(geoBatch([cylX(cR * 0.60, 0.014, xC - 0.004, yC, 0, 14)]), padM));
+    const bg = new THREE.Group();
+    bg.position.set(-xC + 0.004, yC - 0.006, cR - 0.008); bg.rotation.x = -THREE.MathUtils.degToRad(sp.boomDeg || 22); g.add(bg);
+    const L = sp.boomLen;
+    const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.012, -0.006, L * 0.35),
+        new THREE.Vector3(0.028, -0.014, L * 0.72), new THREE.Vector3(0.040, -0.018, L),
+    ]);
+    bg.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.0035, 5, false), shellM));
+    bg.add(new THREE.Mesh(geoBatch([{ geo: new THREE.CylinderGeometry(0.008, 0.008, 0.016, 10), pos: [0.043, -0.019, L + 0.006], rot: [Math.PI / 2, 0, 0.25] }]), padM));
+    return g;
+}
+
+// ── epsonPictureMatePm401 — EPSON PM-401 포토 프린터 → ETC-012 (신규 자산) ──
+function epsonPictureMatePm401(sp) {
+    const g = new THREE.Group();
+    const HW = sp.w / 2, H = sp.h, HD = sp.d / 2, op = THREE.MathUtils.clamp(sp.open != null ? sp.open : 1, 0, 1);
+    const shellM = mat(0xe4e6e8, { roughness: 0.52, metalness: 0.04 });
+    const trayM = mat(0xd7dade, { roughness: 0.58, metalness: 0.04 });
+    const darkM = mat(0x2a2e34, { roughness: 0.70, metalness: 0.08 });
+    const knobM = M.knob();
+    const lcdM = mat(0x101820, { roughness: 0.06, metalness: 0.05 });
+    const seam = mat(0xb9bdc2, { roughness: 0.65, metalness: 0.06 });
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylY = (r, len, x, y, z, seg = 10) => ({ geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const shell = new THREE.ExtrudeGeometry(roundedRect(HW, HD, 0.012), { depth: H, bevelEnabled: false, curveSegments: 3 });
+    shell.rotateX(-Math.PI / 2); g.add(new THREE.Mesh(shell, shellM));
+    g.add(new THREE.Mesh(geoBatch([
+        box(sp.w - 0.030, 0.002, 0.001, 0, H + 0.0005, 0.010),
+        box(0.070, 0.001, 0.052, 0.078, H + 0.0006, -0.030),
+        box(0.150, 0.004, 0.006, 0, H - 0.004, -HD + 0.004),
+        box(0.180, 0.010, 0.004, 0, 0.020, HD - 0.002),
+    ]), seam));
+    const pg = new THREE.Group();
+    pg.position.set(-0.040, H - 0.007, HD - 0.075); pg.rotation.x = -THREE.MathUtils.degToRad((sp.lcdDeg || 40) * op); g.add(pg);
+    pg.add(new THREE.Mesh(geoBatch([box(0.112, 0.006, 0.074, 0, 0.003, 0.030)]), darkM));
+    const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.058, 0.044), lcdM);
+    lcd.rotation.x = -Math.PI / 2; lcd.position.set(-0.012, 0.0065, 0.030); pg.add(lcd);
+    const btn = [];
+    btn.push(cylY(0.0045, 0.004, 0.032, 0.0065, 0.010, 8));
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; btn.push(cylY(0.0035, 0.004, 0.032 + Math.sin(a) * 0.012, 0.0065, 0.038 + Math.cos(a) * 0.012, 6)); }
+    btn.push(cylY(0.0050, 0.004, 0.032, 0.0065, 0.058, 8));
+    pg.add(new THREE.Mesh(geoBatch(btn), knobM));
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.028, 0.003, 0.006, 0.088, H * 0.36, HD - 0.001),
+        box(0.014, 0.004, 0.005, -0.090, H * 0.36, -HD + 0.003),
+        cylY(0.0055, 0.004, 0.086, H + 0.001, 0.048, 8),
+    ]), knobM));
+    if (op > 0.02) {
+        const TL = 0.158 * op, th = THREE.MathUtils.degToRad(43.5), fg = new THREE.Group();
+        fg.position.set(0, H - 0.004, -HD + 0.006); fg.rotation.x = -th; g.add(fg);
+        fg.add(new THREE.Mesh(geoBatch([
+            box(0.150, TL, 0.004, 0, TL / 2, 0), box(0.006, TL, 0.014, -0.072, TL / 2, 0.008),
+            box(0.006, TL, 0.014, 0.072, TL / 2, 0.008), box(0.150, 0.008, 0.010, 0, TL - 0.004, 0.006),
+        ]), trayM));
+    }
+    if (op > 0.02) {
+        const OL = 0.101 * op;
+        g.add(new THREE.Mesh(geoBatch([
+            box(0.170, 0.005, OL, 0, 0.018, HD + OL / 2), box(0.170, 0.010, 0.005, 0, 0.022, HD + OL),
+            box(0.006, 0.012, OL, -0.082, 0.024, HD + OL / 2), box(0.006, 0.012, OL, 0.082, 0.024, HD + OL / 2),
+        ]), trayM));
+    }
+    const ft = [];
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) ft.push(cylY(0.007, 0.003, sx * (HW - 0.020), 0.0015, sz * (HD - 0.018), 8));
+    g.add(new THREE.Mesh(geoBatch(ft), M.rubber()));
+    return g;
+}
+
 // ── SPECS 등록 (실제 자산 id) — 제조사 공식 치수 ─────────────────────────────
 // NANLITE Forza 60B / 60B Ⅱ : 본체 247×134×87mm
 [['LIT-005'], ['LIT-006']].forEach(([id]) => {
@@ -2003,6 +2153,15 @@ SPECS['ETC-002'] = { w: 0.500, h: 1.250, d: 0.550, mode: 'upright', rearD: 0.254
 // VENDICT ROVER 캠핑 웨건 → ETC-003
 SPECS['ETC-003'] = { w: 0.600, h: 0.950, d: 0.950, handleDeg: 90, handleLen: 0.350, color: 'black',
     wheelD: 0.255, wheelW: 0.100, tubW: 0.530, tubD: 0.870, tubH: 0.325, floorY: 0.275, src: 'est' };
+// KUPO KSF-15 샷백/샌드백 → ETC-005/006/007/008 (색 라벨로 구분)
+[['ETC-005', 'red'], ['ETC-006', 'blue'], ['ETC-007', 'yellow'], ['ETC-008', 'blue']].forEach(([id, labelColor]) => {
+    SPECS[id] = { w: 0.127, h: 0.070, d: 0.279, mode: 'flat', labelColor, src: 'est' };
+});
+// HOLLYLAND Solidcom SE 무선 인터컴 → ACC-004 (제품명 일치, 파일명 ETC-014)
+SPECS['ACC-004'] = { w: 0.189, h: 0.179, d: 0.219, role: 'master', cupD: 0.096, cupW: 0.040,
+    halfSpan: 0.072, arch: 0.125, boomLen: 0.115, boomDeg: 22, src: 'est' };
+// EPSON PictureMate PM-401 포토 프린터 → ETC-012 (신규 자산)
+SPECS['ETC-012'] = { w: 0.249, h: 0.085, d: 0.176, open: 1, lcdDeg: 40, src: 'est' };
 
 // 서브 부품 스펙 (자산 아님 — 빌더에 넘긴다)
 const SPEC_FS60B_REFL = { neckD: 0.077, apertureD: 0.115, depth: 0.120, beam: 45 };
@@ -2044,6 +2203,12 @@ function isBtBgV(eq) { return eq && (eq.id === 'PWR-005' || /bt-?bg-?v/i.test(eq
 function isRnrCart(eq) { return eq && (eq.id === 'ETC-001' || /rocknroller|r12rt|멀티\s*카트|카트/i.test(eq.product || '')); }
 // 2in1 접이식 구르마(핸드트럭) → ETC-002
 function isHandTruck(eq) { return eq && (eq.id === 'ETC-002' || /구르마|핸드\s*트럭|hand\s*truck|2in1/i.test(eq.product || '')); }
+// KUPO 샷백/샌드백 웨이트백 → ETC-005/006/007/008
+function isShotBag(eq) { return eq && (['ETC-005','ETC-006','ETC-007','ETC-008'].includes(eq.id) || /샷백|샌드백|shot\s*bag|sand\s*bag|웨이트\s*백|ksf/i.test(eq.product || '')); }
+// HOLLYLAND Solidcom SE 인터컴 → ACC-004 (제품명 우선)
+function isSolidcom(eq) { return eq && (eq.id === 'ACC-004' || /solidcom|인터컴|intercom/i.test(eq.product || '')); }
+// EPSON PM-401 포토 프린터 → ETC-012
+function isPhotoPrinter(eq) { return eq && (eq.id === 'ETC-012' || /picturemate|pm-?401|포토\s*프린터|photo\s*printer/i.test(eq.product || '')); }
 // VENDICT ROVER 웨건 → ETC-003
 function isRoverWagon(eq) { return eq && (eq.id === 'ETC-003' || /rover|웨건|왜건|wagon/i.test(eq.product || '')); }
 
