@@ -4,7 +4,8 @@ const {makeHarness}=require('./harness.js');
 const H=makeHarness(`isMobile,toggleNav,closeNav,pinchInfo,switchMode,
  moveLocked,toggleMoveLock,updateLockUI,startFloorDrag,addFloorItem,
  previewActive,updateCamPanel,setPreviewOn:v=>{previewOn=v},
- F:F,getFDrag:()=>fDrag,getFloorSel:()=>floorSel,cur:currentScene`,{runTimers:true});
+ refreshFromServer,isLoggedIn,
+ F:F,getFDrag:()=>fDrag,getFloorSel:()=>floorSel,cur:currentScene,st:()=>state`,{runTimers:true});
 const A=H.api;
 const html=require('fs').readFileSync(APP,'utf-8');
 let pass=0,fail=0;
@@ -140,5 +141,31 @@ t('showSel item-panel 가드(ipShow)', html.includes('const ipShow = ip && !isMo
 t('item-panel 두 분기 ipShow 사용', (html.match(/if \(ipShow\) \{/g)||[]).length>=2);
 t('모바일이면 item-panel 숨김 처리', (html.match(/else if \(ip\) ip\.style\.display = 'none';/g)||[]).length>=2);
 
-console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
-process.exit(fail?1:0);
+console.log('=== 16. 안전영역 겹침 해결(아이패드·폰 공통) ===');
+t('전역 툴바 safe-area 패딩(모바일 @media 밖)', /#toolbar\{[\s\S]*?padding:calc\(9px \+ env\(safe-area-inset-top\)\)/.test(html));
+t('공유바(vo-bar) 안전영역 반영', /#vo-bar\{[\s\S]*?env\(safe-area-inset-top\)/.test(html));
+t('보기전용 상단 여백도 안전영역', html.includes('padding-top:calc(38px + env(safe-area-inset-top))'));
+t('모바일 @media 툴바는 중복 패딩 제거', html.includes('안전영역 패딩은 전역 #toolbar 가 담당'));
+
+console.log('=== 17. 상단 새로고침 버튼 ===');
+t('툴바에 새로고침 버튼', html.includes('id="refresh-btn"') && html.includes('onclick="refreshFromServer()"'));
+t('회전 애니메이션 CSS', html.includes('@keyframes spin') && html.includes('#refresh-btn.spinning'));
+t('중복 실행 가드 코드', html.includes('if (_refreshing) return;'));
+
+// 동작: 로그인 상태에서 gear_workspaces + gear_equipment 를 다시 GET (async)
+(async function(){
+  const gets=[];
+  H.ctx.fetch=async(u,o)=>{ gets.push(u);
+    return {ok:true,status:200,json:async()=>[],text:async()=>'[]'}; };
+  A.st().auth={access:'ACCESS',email:'dev@ehstudio.net',expires:Date.now()+3600000};
+  await A.refreshFromServer();
+  t('로그인 시 작업공간 재로딩(GET)', gets.some(u=>u.includes('/gear_workspaces')));
+  t('장비 마스터 재로딩(GET)', gets.some(u=>u.includes('/gear_equipment')));
+  A.st().auth={};
+  gets.length=0;
+  await A.refreshFromServer();
+  t('비로그인은 장비만 재로딩', gets.some(u=>u.includes('/gear_equipment')) && !gets.some(u=>u.includes('/gear_workspaces')));
+
+  console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
+  process.exit(fail?1:0);
+})();

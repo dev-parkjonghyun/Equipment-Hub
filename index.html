@@ -143,7 +143,10 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 /* ───── 메인 ───── */
 #main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-0)}
 #toolbar{
-  background:var(--bg-1);padding:9px 14px;border-bottom:1px solid var(--line);
+  background:var(--bg-1);border-bottom:1px solid var(--line);
+  /* 아이패드·폰 상단 시스템 UI(노치·상태바)와 안 겹치게 안전영역만큼 내려온다.
+     데스크톱은 inset=0 이라 9px/14px 그대로다. */
+  padding:calc(9px + env(safe-area-inset-top)) 14px 9px max(14px, env(safe-area-inset-left));
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:8px;
 }
 #scene-select{min-width:172px}
@@ -509,8 +512,9 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 
 
 /* ═══ 공유 · 모달 ═══ */
-#vo-bar{position:fixed;left:0;right:0;top:0;z-index:200;height:38px;
-  display:flex;align-items:center;gap:10px;padding:0 16px;
+#vo-bar{position:fixed;left:0;right:0;top:0;z-index:200;
+  height:calc(38px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);
+  display:flex;align-items:center;gap:10px;padding-left:max(16px, env(safe-area-inset-left));padding-right:16px;
   background:linear-gradient(90deg,#1b2735,#141a22);border-bottom:1px solid var(--line-2);
   font-size:12px;color:var(--tx-1)}
 #vo-bar .vo-ic{font-size:14px}
@@ -519,7 +523,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 /* 공유 링크(보기 전용): 좌측 레일·패널·상단 툴바를 감추고 캔버스만 보여준다.
    그리드 좌측 두 열을 0 으로 접어 캔버스가 전체 폭을 쓴다.
    하단 모드 도크(배치도/평면도/3D)는 남겨 감독님이 시점을 바꿀 수 있게 한다. */
-#app.view-only{padding-top:38px;height:100vh;grid-template-columns:0 0 1fr}
+#app.view-only{padding-top:calc(38px + env(safe-area-inset-top));height:100vh;height:100dvh;grid-template-columns:0 0 1fr}
 #app.view-only #rail,
 #app.view-only #panel,
 #app.view-only #panel-tab,
@@ -621,6 +625,12 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   padding:5px 11px;font-size:11.5px;border-radius:var(--r-m);white-space:nowrap;box-shadow:none;flex:0 0 auto}
 #share-btn:hover{border-color:var(--acc);color:var(--tx-0)}
 #share-btn.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
+#refresh-btn{background:var(--bg-2);border:1px solid var(--line-2);color:var(--tx-1);
+  padding:5px 10px;font-size:14px;line-height:1;border-radius:var(--r-m);box-shadow:none;flex:0 0 auto}
+#refresh-btn:hover{border-color:var(--acc);color:var(--tx-0)}
+#refresh-btn.spinning{pointer-events:none;opacity:.7}
+#refresh-btn.spinning span{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .ac-dot{width:6px;height:6px;border-radius:50%;background:var(--tx-3);flex:none}
 .ac-dot.on{background:var(--ok);box-shadow:0 0 7px var(--ok)}
 .lg-err{font-size:11.5px;color:var(--danger);margin-top:10px;min-height:16px;line-height:1.5}
@@ -768,10 +778,9 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   #nav-ham{display:inline-flex;align-items:center;justify-content:center}
   .mobile-only{display:inline-flex}
 
-  /* 상단 툴바: 가로 스크롤 한 줄 */
+  /* 상단 툴바: 가로 스크롤 한 줄 (안전영역 패딩은 전역 #toolbar 가 담당) */
   #toolbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-    -webkit-overflow-scrolling:touch;scrollbar-width:none;
-    padding-top:calc(9px + env(safe-area-inset-top))}
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
   #toolbar::-webkit-scrollbar{display:none}
   #toolbar > *{flex:0 0 auto}
   #scene-select{min-width:130px}
@@ -936,6 +945,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
             <select id="scene-select" style="display:none"></select>
             <span id="scene-chip"></span>
             <button id="auth-chip" style="display:none"></button>
+            <button id="refresh-btn" onclick="refreshFromServer()"
+                    title="서버에서 최신 장비·배치를 다시 불러옵니다" aria-label="새로고침"><span>🔄</span></button>
             <button id="share-btn" onclick="shareCurrentScene()"
                     title="이 배치를 보기 전용 링크로 공유합니다 (씬당 1개, 수정 자동 반영)">🔗 공유</button>
             <div class="divider"></div>
@@ -3318,6 +3329,28 @@ async function pullWorkspace() {
             await pushWorkspace();              // 서버에 아직 없으면 이 브라우저 씬을 처음으로 올린다
         }
     } catch (e) { console.warn('작업공간 불러오기 실패 — 로컬 사용', e); }
+}
+
+// 상단 새로고침 — 서버 최신(작업공간·장비)으로 덮어쓰고 화면을 다시 그린다.
+let _refreshing = false;
+async function refreshFromServer() {
+    if (_refreshing) return;                         // 중복 클릭 가드
+    _refreshing = true;
+    const btn = document.getElementById('refresh-btn');
+    if (btn) btn.classList.add('spinning');
+    setStatus('최신 데이터를 불러오는 중…');
+    try {
+        if (isLoggedIn()) await pullWorkspace();     // 서버 작업공간(씬·세트)을 로컬에 덮어씀
+        await loadEquipmentFromServer();             // 장비 마스터·치수 재로딩
+        switchMode(currentScene().mode || 'list');
+        renderSceneSelect(); renderList(); renderPalette(); renderScenePane();
+        setStatus('최신 데이터를 불러왔습니다');
+    } catch (e) {
+        setStatus('불러오기 실패 — 잠시 후 다시 시도해 주세요 (' + (e && e.message || e) + ')');
+    } finally {
+        _refreshing = false;
+        if (btn) btn.classList.remove('spinning');
+    }
 }
 
 // ── 로그인 화면 ──
