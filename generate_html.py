@@ -50,6 +50,7 @@ HTML = r"""<!DOCTYPE html>
   --acc:#5b9dff; --acc-dim:#2f5a94; --acc-soft:rgba(91,157,255,.14);
   --warn:#ffb454; --danger:#ff6b6b; --ok:#5fd39a;
   --r-s:5px; --r-m:8px; --r-l:11px;
+  --dock-h:52px;      /* 하단 모드 독 높이 (스크롤 목록 바닥 여백 계산용) */
   --sh-1:0 1px 2px rgba(0,0,0,.4);
   --sh-2:0 4px 14px rgba(0,0,0,.45);
   --sh-3:0 12px 34px rgba(0,0,0,.55);
@@ -465,8 +466,10 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .pane-head{padding:16px 16px 10px;display:flex;flex-direction:column;gap:9px;flex:0 0 auto}
 .pane-head h1{font-size:15px;font-weight:650;letter-spacing:-.02em}
 .pane-sub{font-size:11.5px;color:var(--tx-2);line-height:1.65}
-.pane-body{overflow-y:auto;flex:1;padding:0 14px 18px}
-#palette-list,#sets-list{overflow-y:auto;flex:1;padding:2px 10px 16px}
+/* 하단 모드 독(고정)이 패널 위에 겹치므로, 스크롤 목록 바닥에 독 높이만큼 여백을 둬
+   마지막 항목까지 독 위로 스크롤되게 한다 (--dock-h 는 #mode-dock 참조) */
+.pane-body{overflow-y:auto;flex:1;padding:0 14px calc(18px + var(--dock-h))}
+#palette-list,#sets-list{overflow-y:auto;flex:1;padding:2px 10px calc(16px + var(--dock-h))}
 
 /* 접기 탭 */
 #panel-tab{position:fixed;left:339px;top:50%;transform:translateY(-50%);z-index:120;
@@ -477,12 +480,12 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 #app.pal-hidden #panel-tab{left:78px}
 
 /* 하단 2D/3D 도크 */
-#mode-dock{position:fixed;left:0;bottom:0;z-index:130;display:flex;
+#mode-dock{position:fixed;left:0;bottom:0;z-index:130;display:flex;height:var(--dock-h);
   background:var(--bg-1);border-top:1px solid var(--line);border-right:1px solid var(--line);
   border-radius:0 12px 0 0;overflow:hidden;box-shadow:0 -3px 14px rgba(0,0,0,.35)}
 .md{background:transparent;border:none;box-shadow:none;border-radius:0;
-  padding:16px 0;width:113px;font-size:13.5px;font-weight:700;color:var(--tx-2);
-  letter-spacing:-.02em;position:relative}
+  padding:0;width:113px;font-size:13.5px;font-weight:700;color:var(--tx-2);
+  letter-spacing:-.02em;position:relative;display:flex;align-items:center;justify-content:center}
 #app.pal-hidden .md{width:78px;font-size:12px}
 #mode-dock .md{width:104px}
 .md:hover{background:var(--bg-2);color:var(--tx-1)}
@@ -837,7 +840,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
   #toolbar input, #toolbar select, .mbox input, .mbox select{font-size:16px}
 
   /* 하단 모드 도크: 전체 폭 3등분 바텀 내비 */
-  #mode-dock{left:0;right:0;border-radius:0;border-right:none;
+  #mode-dock{left:0;right:0;border-radius:0;border-right:none;height:auto;
     padding-bottom:env(safe-area-inset-bottom)}
   #mode-dock .md{flex:1;width:auto !important;padding:14px 0}
 
