@@ -557,6 +557,17 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .mrow input{flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:11px}
 .mmeta{font-size:11px;color:var(--tx-3);margin-top:9px}
 .mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+/* 장비 추가·수정 폼 */
+.mbox.form{width:min(600px,94vw);max-height:88dvh;overflow:auto}
+.eq-form{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.eq-form .fld{min-width:0}
+.eq-form .fld.wide{grid-column:1 / -1}
+.eq-form .mlab{margin:0 0 4px}
+.eq-form input,.eq-form select{width:100%;padding:9px 11px;font-size:12px;background:var(--bg-0);
+  border:1px solid var(--line-2);border-radius:var(--r-m);color:var(--tx-0)}
+.eq-form input[readonly]{color:var(--tx-2);background:var(--bg-2);font-family:ui-monospace,Menlo,monospace}
+.eq-err{font-size:11.5px;color:var(--danger);min-height:16px;margin-top:10px;line-height:1.5}
+@media(max-width:560px){ .eq-form{grid-template-columns:1fr} }
 .share-row{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--bg-2);
   border-radius:var(--r-m);margin-bottom:6px;font-size:11px}
 .share-row .sr-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx-1)}
@@ -730,10 +741,11 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .lcat-tag{font-size:10px;color:var(--tx-2);white-space:nowrap}
 .lsum.src .vs{font-size:11.5px;font-weight:600;color:var(--tx-1)}
 .lsum.src.warn .vs{color:var(--warn)}
-.lact{width:30px;text-align:center}
-.lx{background:transparent;border:none;box-shadow:none;color:var(--tx-3);
-  padding:2px 6px;font-size:14px;line-height:1;border-radius:5px}
+.lact{width:56px;text-align:center;white-space:nowrap}
+.lx,.ledt{background:transparent;border:none;box-shadow:none;color:var(--tx-3);
+  padding:2px 5px;font-size:14px;line-height:1;border-radius:5px}
 .lx:hover{background:rgba(255,107,107,.15);color:var(--danger)}
+.ledt:hover{background:var(--bg-2);color:var(--tx-0)}
 .lempty{text-align:center;padding:60px 20px;color:var(--tx-2)}
 .lempty b{display:block;color:var(--tx-0);font-size:15px;margin-bottom:7px}
 .lsub{background:var(--bg-1)}
@@ -899,6 +911,42 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
         <div class="mbtns">
           <button onclick="closeLogin()">취소</button>
           <button class="primary" id="lg-btn" onclick="doLogin()">로그인</button></div>
+      </div>
+    </div>
+
+    <div id="eq-modal" class="modal">
+      <div class="mbox form">
+        <div class="mhead" id="eqf-head">장비 추가</div>
+        <p class="msub" id="eqf-sub">필요한 항목을 채우고 저장하세요. 자산번호는 카테고리에 맞춰 자동으로 매겨집니다.</p>
+        <div class="eq-form">
+          <div class="fld"><label class="mlab">카테고리 *</label>
+            <select id="eqf-cat" onchange="eqFormCatChanged()"></select></div>
+          <div class="fld"><label class="mlab">자산번호</label>
+            <input id="eqf-id" readonly></div>
+          <div class="fld wide"><label class="mlab">제품명 *</label>
+            <input id="eqf-product" placeholder="예: Sony a7m4 / NANLITE Forza 500"></div>
+          <div class="fld"><label class="mlab">세부분류</label>
+            <input id="eqf-sub" placeholder="예: 미러리스 카메라"></div>
+          <div class="fld"><label class="mlab">브랜드</label>
+            <input id="eqf-brand" placeholder="예: Sony"></div>
+          <div class="fld"><label class="mlab">모델</label>
+            <input id="eqf-model" placeholder="예: a7m4"></div>
+          <div class="fld"><label class="mlab">별칭 (현장 호칭)</label>
+            <input id="eqf-nick" placeholder="이름이 어려울 때만"></div>
+          <div class="fld"><label class="mlab">상태</label>
+            <select id="eqf-status">
+              <option value="정상">정상</option>
+              <option value="수리필요">수리필요</option>
+              <option value="폐기">폐기</option></select></div>
+          <div class="fld"><label class="mlab">보관위치</label>
+            <input id="eqf-loc" placeholder="예: 선반 A-2 · 케이스 1"></div>
+          <div class="fld wide"><label class="mlab">비고</label>
+            <input id="eqf-note" placeholder="메모"></div>
+        </div>
+        <div class="eq-err" id="eqf-err"></div>
+        <div class="mbtns">
+          <button onclick="closeEqForm()">취소</button>
+          <button class="primary" id="eqf-save" onclick="submitEqForm()">저장</button></div>
       </div>
     </div>
 
@@ -3136,34 +3184,107 @@ async function saveEqToServer(id, patch) {
         body: JSON.stringify(patch),
     });
 }
-// 장비 추가
-async function addEquipment() {
-    if (!requireLogin('장비를 추가')) return;
-    if (!eqIsServer()) { alert('서버에 연결된 상태에서만 추가할 수 있습니다.'); return; }
-    const cat = (prompt('카테고리 코드를 입력하세요.\n\n' + CAT_ORDER.join(' · '), 'ACC') || '').trim().toUpperCase();
-    if (!cat) return;
-    if (!CAT_ORDER.includes(cat)) { alert(`"${cat}" 는 없는 카테고리입니다.`); return; }
-    const product = (prompt('제품명을 입력하세요.', '') || '').trim();
-    if (!product) return;
-    // 다음 번호 찾기
+// 카테고리별 다음 자산번호 (예: 'ETC' → 'ETC-013')
+function nextAssetId(cat) {
     const used = EQUIPMENT.filter(e => e.cat === cat)
         .map(e => { const m = e.id.match(/(\d+)$/); return m ? +m[1] : 0; });
     const next = (used.length ? Math.max(...used) : 0) + 1;
-    const id = `${cat}-${String(next).padStart(3, '0')}`;
-    if (!confirm(`새 자산번호는 ${id} 입니다.\n\n${product}\n\n추가할까요?`)) return;
+    return `${cat}-${String(next).padStart(3, '0')}`;
+}
+
+// 폼이 수정 중인 장비 id (null = 추가 모드)
+let eqFormId = null;
+
+// 카테고리 select 를 CAT_ORDER 로 채우기 (한 번만)
+function fillEqCatSelect() {
+    const sel = document.getElementById('eqf-cat');
+    if (!sel || sel.options.length) return;
+    sel.innerHTML = CAT_ORDER.map(c => `<option value="${c}">${c} — ${CAT_NAMES[c] || c}</option>`).join('');
+}
+
+// 추가 모드에서 카테고리를 바꾸면 자산번호 미리보기 갱신
+function eqFormCatChanged() {
+    if (eqFormId) return;             // 수정 모드에선 잠금
+    const cat = document.getElementById('eqf-cat').value;
+    document.getElementById('eqf-id').value = nextAssetId(cat);
+}
+
+// 폼 열기 — id 없으면 추가, 있으면 수정
+function openEqForm(id) {
+    if (!requireLogin(id ? '장비를 수정' : '장비를 추가')) return;
+    if (!eqIsServer()) { alert('서버에 연결된 상태에서만 추가·수정할 수 있습니다.'); return; }
+    fillEqCatSelect();
+    eqFormId = id || null;
+    const eq = id ? EQUIPMENT.find(e => e.id === id) : null;
+    const g = k => document.getElementById('eqf-' + k);
+    g('err').textContent = '';
+    if (eq) {                          // 수정 모드
+        document.getElementById('eqf-head').textContent = '장비 수정';
+        document.getElementById('eqf-sub').textContent = `${eq.id} 의 정보를 고칩니다. 카테고리·자산번호는 바꿀 수 없습니다.`;
+        g('cat').value = eq.cat; g('cat').disabled = true;
+        g('id').value = eq.id;
+        g('product').value = eq.product || '';
+        g('sub').value = eq.sub || '';
+        g('brand').value = eq.brand || '';
+        g('model').value = eq.model || '';
+        g('nick').value = eq.nick || '';
+        g('status').value = eq.status || '정상';
+        g('loc').value = eq.loc || '';
+        g('note').value = eq.note || '';
+    } else {                           // 추가 모드
+        document.getElementById('eqf-head').textContent = '장비 추가';
+        document.getElementById('eqf-sub').textContent = '필요한 항목을 채우고 저장하세요. 자산번호는 카테고리에 맞춰 자동으로 매겨집니다.';
+        g('cat').disabled = false;
+        g('cat').value = 'ACC';
+        g('id').value = nextAssetId('ACC');
+        ['product', 'sub', 'brand', 'model', 'nick', 'loc', 'note'].forEach(k => g(k).value = '');
+        g('status').value = '정상';
+    }
+    document.getElementById('eq-modal').classList.add('on');
+    setTimeout(() => { const p = g('product'); if (p && p.focus) p.focus(); }, 50);
+}
+function closeEqForm() { document.getElementById('eq-modal').classList.remove('on'); }
+
+// 이전 이름 유지: 툴바 '＋ 장비 추가' 버튼용
+function addEquipment() { openEqForm(); }
+
+async function submitEqForm() {
+    const g = k => document.getElementById('eqf-' + k);
+    const err = g('err');
+    const val = k => g(k).value.trim();
+    const product = val('product');
+    if (!product) { err.textContent = '제품명은 반드시 입력해야 합니다.'; const p = g('product'); if (p && p.focus) p.focus(); return; }
+    const btn = document.getElementById('eqf-save');
+    btn.disabled = true; err.textContent = '';
     try {
         await ensureAuth();
-        await sbFetch('/rest/v1/gear_equipment', {
-            method: 'POST', headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify({
-                id, cat, cat_label: CAT_NAMES[cat] || cat, product,
-                status: '정상', sort_order: EQUIPMENT.length + 1,
-            }),
-        });
-    } catch (e) { alert('추가하지 못했습니다.\n\n' + e.message); return; }
+        if (eqFormId) {                // 수정 → PATCH
+            await saveEqToServer(eqFormId, {
+                product, sub: val('sub'), brand: val('brand'), model: val('model'),
+                nick: val('nick'), status: g('status').value, location: val('loc'), note: val('note'),
+            });
+        } else {                       // 추가 → POST
+            const cat = g('cat').value;
+            const id = nextAssetId(cat);
+            await sbFetch('/rest/v1/gear_equipment', {
+                method: 'POST', headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify({
+                    id, cat, cat_label: CAT_NAMES[cat] || cat, product,
+                    sub: val('sub'), brand: val('brand'), model: val('model'),
+                    nick: val('nick'), status: g('status').value,
+                    location: val('loc'), note: val('note'),
+                    sort_order: EQUIPMENT.length + 1, active: true,
+                }),
+            });
+        }
+    } catch (e) { err.textContent = '저장하지 못했습니다 — ' + e.message; btn.disabled = false; return; }
+    const savedId = eqFormId || null;
     await loadEquipmentFromServer();
-    listState.q = id; syncListTools(); renderList(); renderPalette();
-    setStatus(`${id} ${product} 를 추가했습니다`);
+    if (!savedId) listState.q = document.getElementById('eqf-id').value;
+    syncListTools(); renderList(); renderPalette();
+    btn.disabled = false;
+    closeEqForm();
+    setStatus(savedId ? `${savedId} 을(를) 수정했습니다` : `${product} 를 추가했습니다`);
 }
 // 장비 숨기기 (이력은 남기고 목록에서만 제거)
 async function retireEquipment(id) {
@@ -3836,7 +3957,7 @@ function rowHTML(eq, qty, group, isSub) {
         <td><input class="ledit" value="${esc(eq.note || '')}" placeholder="—"
              onchange="setEq('${eq.id}','note',this.value)"></td>
         <td class="lact">${eqIsServer() && isLoggedIn()
-            ? `<button class="lx" title="목록에서 내리기" onclick="retireEquipment('${eq.id}')">×</button>` : ''}</td>
+            ? `<button class="ledt" title="수정" onclick="openEqForm('${eq.id}')">✎</button><button class="lx" title="목록에서 내리기" onclick="retireEquipment('${eq.id}')">×</button>` : ''}</td>
     </tr>`;
 }
 function allChecked(rows) { return rows.length > 0 && rows.every(r => listSel.has(r.id)); }

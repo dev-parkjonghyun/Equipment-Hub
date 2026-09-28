@@ -3,6 +3,7 @@ const {makeHarness}=require('./harness.js');
 const H=makeHarness(`switchMode,sbLogin,sbRefresh,sbLogout,ensureAuth,authToken,isLoggedIn,authEmail,
  openLogin,closeLogin,doLogin,syncAuthUI,requireLogin,sbHeaders,sbCfg,sbReady,
  loadEquipmentFromServer,eqIsServer,saveEqToServer,addEquipment,retireEquipment,setEq,
+ openEqForm,submitEqForm,closeEqForm,nextAssetId,
  renderList,renderPalette,updateListSummary,applyEqEdits,dispName,specOf,
  EQ:()=>EQUIPMENT,SP:()=>SPECS,st:()=>state,cur:currentScene,
  setSrc:v=>{eqSource=v},getSrc:()=>eqSource`,{runTimers:true});
@@ -141,10 +142,17 @@ t('실패하면 원래대로', len.nick===old, len.nick);
 t('사용자에게 알림', H.alerts.some(a=>a.includes('저장하지 못했습니다')));
 mockServer();
 
-console.log('=== 8. 장비 추가 ===');
+console.log('=== 8. 장비 추가(폼) ===');
 await A.loadEquipmentFromServer();
-H.ctx.prompt=(q)=>/카테고리/.test(q)?'ACC':/제품명/.test(q)?'새 클램프':'';
-await A.addEquipment();
+// addEquipment() 는 이제 폼 모달을 연다(옛 prompt 연속 대신)
+A.addEquipment();
+t('＋버튼이 폼 모달을 연다', el('eq-modal').classList.contains('on'));
+el('eqf-cat').value='ACC';
+el('eqf-product').value='새 클램프';
+el('eqf-sub').value=''; el('eqf-brand').value=''; el('eqf-model').value='';
+el('eqf-nick').value=''; el('eqf-loc').value=''; el('eqf-note').value='';
+el('eqf-status').value='정상';
+await A.submitEqForm();
 { const p=calls.filter(c=>c.method==='POST'&&c.u.includes('gear_equipment'));
   t('POST 로 추가', p.length===1, p.length);
   const b=JSON.parse(p[0].body);
@@ -152,18 +160,19 @@ await A.addEquipment();
   t('카테고리 저장', b.cat==='ACC');
   t('제품명 저장', b.product==='새 클램프');
   t('기본 상태 정상', b.status==='정상'); }
-// 없는 카테고리는 거부
-H.ctx.prompt=(q)=>/카테고리/.test(q)?'ZZZ':'x';
+// 제품명 비면 저장 안 함
+A.addEquipment();
+el('eqf-product').value='';
 const n0=calls.filter(c=>c.method==='POST').length;
-await A.addEquipment();
-t('없는 카테고리 거부', calls.filter(c=>c.method==='POST').length===n0);
-t('안내 표시', H.alerts.some(a=>a.includes('없는 카테고리')));
-// 로그아웃이면 막힘
+await A.submitEqForm();
+t('제품명 없으면 추가 안 함', calls.filter(c=>c.method==='POST').length===n0);
+t('폼에 에러 안내', el('eqf-err').textContent.includes('제품명'));
+A.closeEqForm();
+// 로그아웃이면 폼조차 안 열림
 A.sbLogout();
-H.ctx.prompt=()=>'ACC';
-const n1=calls.filter(c=>c.method==='POST').length;
-await A.addEquipment();
-t('로그아웃이면 추가 차단', calls.filter(c=>c.method==='POST').length===n1);
+el('eq-modal').classList.remove('on');
+A.addEquipment();
+t('로그아웃이면 폼 안 열림', !el('eq-modal').classList.contains('on'));
 await A.sbLogin('dev@ehstudio.net','good');
 
 console.log('=== 9. 목록에서 내리기 ===');
