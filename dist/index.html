@@ -78,7 +78,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .ptab.active{color:#fff;background:var(--acc-dim);border-color:#3d6fae}
 
 #palette-list,#sets-list{overflow-y:auto;flex:1;padding:2px 8px 14px}
-#sets-list{display:none}
+/* (#sets-list 는 신형 패널(.pane.on)이 표시를 담당한다. 옛 display:none 잔재 제거) */
 
 .cat-group{--cat-color:#6b7684;margin-bottom:3px}
 .cat-header{
@@ -1216,7 +1216,6 @@ const EQUIPMENT = [{"id": "CAM-001", "nick": "", "cat": "CAM", "catLabel": "카�
 const STORAGE_KEY = 'eh_layout_v1';
 let selectedIds = new Set();  // 선택된 블록/그룹 id
 let dragCtx = null;
-let activeTab = 'equip';
 const GRID_SIZE = 20;
 let snapEnabled = false;
 
@@ -1615,16 +1614,7 @@ function renderPalette() {
 }
 document.getElementById('search').addEventListener('input', renderPalette);
 
-// ===================== 탭 전환 =====================
-function switchTab(tab) {
-    activeTab = tab;
-    document.querySelectorAll('.ptab').forEach(b =>
-        b.classList.toggle('active', b.dataset.tab === tab));
-    document.getElementById('palette-list').style.display = tab === 'equip' ? 'block' : 'none';
-    document.getElementById('sets-list').style.display = tab === 'sets' ? 'block' : 'none';
-    document.getElementById('search').style.display = tab === 'equip' ? 'block' : 'none';
-    if (tab === 'sets') renderSets();
-}
+// (탭 전환은 신형 패널 시스템의 switchTab→openPane 이 담당한다. 옛 switchTab 제거)
 
 // ===================== 세트 팔레트 렌더 =====================
 function renderSets() {
@@ -1699,10 +1689,11 @@ function saveAsSet() {
     if (eqIds.length === 0) return;
     const name = prompt(`세트 이름 (${eqIds.length}개 장비)`, '새 세트');
     if (!name) return;
-    const sid = 'set' + Date.now();
+    state.sets = state.sets || {};
+    const sid = 'set_' + Date.now().toString(36);
     state.sets[sid] = { name: name.trim(), eqIds };
     saveState();
-    switchTab('sets');
+    openPane('sets', true);           // 세트 패널 열기(init=true: 토글 없이 항상 열고 renderSets)
     alert(`"${name}" 세트 저장 완료 (${eqIds.length}개 장비)`);
 }
 function renameSet(sid, e) {
@@ -1971,8 +1962,8 @@ function updateStatus() {
         document.getElementById('status-info').textContent =
             `씬: ${s.name} | 배치: ${bc}개 블록, ${gc}개 그룹 | 선택: ${selectedIds.size}개`;
     }
-    // 세트 탭 열려있으면 배치됨 상태 갱신
-    if (activeTab === 'sets') renderSets();
+    // 세트 패널이 열려 있으면 '배치됨' 상태 갱신
+    if (typeof activePane !== 'undefined' && activePane === 'sets') renderSets();
 }
 
 // ===================== 드롭 (팔레트 → 캔버스) =====================

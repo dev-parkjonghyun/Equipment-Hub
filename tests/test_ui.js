@@ -3,9 +3,11 @@ const {makeHarness}=require('./harness.js');
 const H=makeHarness(`openPane,togglePalette,switchMode,switchTab,renderSpacePane,renderRigPane,
  renderScenePane,selectRoom,deleteRoom,removeBg,focusBlock,gotoScene,setRigView,
  ensureFloor,finishRoom,attachBlock,acceptSlot,renderCanvas,renderFloor,newScene,
+ renderSets,saveAsSet,addBlockAt,EQ:()=>EQUIPMENT,
  cur:currentScene,st:()=>state,get pane(){return activePane},get rv(){return rigView},
  get sel(){return selectedIds}`);
 const A=H.api;
+const html=require('fs').readFileSync(APP,'utf-8');
 let pass=0,fail=0;
 const t=(n,c,i)=>{c?(pass++,console.log('  ✅',n)):(fail++,console.log('  ❌',n,i||''))};
 const S=()=>A.cur();
@@ -74,6 +76,27 @@ A.switchTab('equip');
 t('switchTab(equip) → 장비 패널', A.pane==='equip');
 t('팔레트 목록 유지', (H.store['palette-list'].innerHTML.match(/eq-card/g)||[]).length===113);
 t('상태 저장', A.st().pane==='equip');
+
+console.log('=== 8. 세트가 저장되면 세트 패널에 보인다(회귀) ===');
+// 잔재 CSS(#sets-list{display:none})가 신형 패널에서 세트를 숨기던 버그
+t('세트 목록에 display:none 잔재 없음', !html.includes('#sets-list{display:none}'));
+A.st().sets = A.st().sets || {};
+A.st().sets['set_test1'] = { name: '인터뷰 기본세트', eqIds: ['CAM-003','LEN-001'] };
+A.openPane('sets');
+t('세트 패널 활성', A.pane==='sets' && H.store['pane-sets'].classList.contains('on'));
+t('세트 카드가 목록에 렌더됨', H.store['sets-list'].innerHTML.includes('인터뷰 기본세트'), H.store['sets-list'].innerHTML.slice(0,60));
+t('세트 항목(장비)도 표시', H.store['sets-list'].innerHTML.includes('CAM-003'));
+// saveAsSet: 배치도 블록 선택 → 저장 → 즉시 세트 패널 노출
+A.switchMode('layout');
+const bid=A.addBlockAt('LIT-005',100,100);
+A.sel.clear(); A.sel.add(bid);
+H.ctx.__prompt='내 세트';
+A.saveAsSet();
+t('saveAsSet 저장됨', Object.values(A.st().sets).some(s=>s.name==='내 세트'));
+t('saveAsSet 후 세트 패널 열림', A.pane==='sets');
+t('saveAsSet 카드가 즉시 보임', H.store['sets-list'].innerHTML.includes('내 세트'));
+t('세트 id 형식 통일(set_)', Object.keys(A.st().sets).filter(k=>k!=='set_beforeafter').every(k=>k.startsWith('set_')));
+t('renderCanvas 는 activePane 참조', html.includes("activePane === 'sets') renderSets()"));
 
 console.log('\n결과: '+pass+' 통과 / '+fail+' 실패');
 process.exit(fail?1:0);
