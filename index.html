@@ -1063,8 +1063,8 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                     <button data-v="card" onclick="setListView('card')" title="카드(갤러리)로 보기">▦ 카드</button>
                 </span>
                 <select id="lsort" onchange="listState.sort=this.value;renderList()">
-                    <option value="id">자산번호순</option>
                     <option value="cat">카테고리순</option>
+                    <option value="id">자산번호순</option>
                     <option value="name">이름순</option>
                     <option value="status">상태순</option>
                     <option value="nick">별칭 있는 것 먼저</option>
@@ -3736,7 +3736,7 @@ function closePhoto() { document.getElementById('photo-modal').classList.remove(
 // ═══════════════════════════════════════════════════
 //  장비 목록 화면 — 앱의 중심
 // ═══════════════════════════════════════════════════
-let listState = { q: '', status: '', sort: 'id', group: false, cat: 'ALL', only: '', brand: '', view: 'list' };
+let listState = { q: '', status: '', sort: 'cat', group: false, cat: 'ALL', only: '', brand: '', view: 'list' };
 const listSel = new Set();
 // 소속(킷) 펼침 상태 (부모 자산번호). 세트 뷰에선 항상 펼침.
 const kitOpen = new Set();
@@ -3954,7 +3954,7 @@ function updateListSummary() {
         { k: '별칭 붙은 것', v: nick, act: "listState.only='nick';listState.q='';syncListTools();renderList()" },
         { k: '이름 어려움', v: hard, cls: hard ? 'warn' : '',
           act: "listState.only='hard';listState.q='';listState.status='';syncListTools();renderList()" },
-        { k: '보관위치 없음', v: noLoc, cls: noLoc ? 'gap' : '', act: "listState.only='';listState.sort='id';renderList()" },
+        { k: '보관위치 없음', v: noLoc, cls: noLoc ? 'gap' : '', act: "listState.only='';listState.sort='cat';renderList()" },
         { k: '같은 제품 여러 대', v: EQUIPMENT.filter(e => sameProductCount(e) > 1).length,
           act: "listState.only='dup';listState.group=true;listState.q='';syncListTools();renderList()" }
     ];
