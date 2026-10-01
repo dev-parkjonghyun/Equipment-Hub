@@ -767,9 +767,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .cat-CAB{--cat-color:#49bdb0}.cat-ACC{--cat-color:#a89076}.cat-ETC{--cat-color:#8fa0b0}
 
 /* 카테고리 칩 바 (렌탈샵식 — 한 번에 한 분류) */
-#list-chips{display:flex;gap:7px;overflow-x:auto;padding:4px 18px 12px;scrollbar-width:thin}
-#list-chips::-webkit-scrollbar{height:5px}
-#list-chips::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+#list-chips{display:flex;flex-wrap:wrap;gap:7px;padding:2px 18px 14px}
 .cat-chip{flex:none;display:flex;align-items:center;gap:6px;background:var(--bg-1);
   border:1px solid var(--line-2);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:600;
   color:var(--tx-1);cursor:pointer;white-space:nowrap;transition:.12s;box-shadow:none}
