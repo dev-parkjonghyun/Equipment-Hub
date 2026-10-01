@@ -771,7 +771,9 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .ledit.empty{background:repeating-linear-gradient(-45deg,transparent,transparent 5px,
   rgba(255,180,84,.055) 5px,rgba(255,180,84,.055) 10px)}
 .lstat{font-size:10.5px;font-weight:650;padding:3px 9px;border-radius:999px;
-  border:1px solid;white-space:nowrap;cursor:pointer;background:transparent}
+  border:1px solid;white-space:nowrap;cursor:pointer;background:transparent;
+  display:inline-flex;align-items:center;gap:5px}
+.lstat::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .lstat.ok{color:var(--ok);border-color:rgba(95,211,154,.35)}
 .lstat.fix{color:var(--warn);border-color:rgba(255,180,84,.4);background:rgba(255,180,84,.08)}
 .lstat.dead{color:var(--tx-3);border-color:var(--line)}
@@ -798,6 +800,45 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
 .cat-GIM{--cat-color:#b58aff}.cat-AUD{--cat-color:#5fc98a}.cat-MON{--cat-color:#2ec8d8}
 .cat-BAT{--cat-color:#ef7676}.cat-PWR{--cat-color:#ff9166}.cat-STO{--cat-color:#c78aff}
 .cat-CAB{--cat-color:#49bdb0}.cat-ACC{--cat-color:#a89076}.cat-ETC{--cat-color:#8fa0b0}
+
+/* 카테고리 칩 바 (렌탈샵식 — 한 번에 한 분류) */
+#list-chips{display:flex;gap:7px;overflow-x:auto;padding:4px 18px 12px;scrollbar-width:thin}
+#list-chips::-webkit-scrollbar{height:5px}
+#list-chips::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.cat-chip{flex:none;display:flex;align-items:center;gap:6px;background:var(--bg-1);
+  border:1px solid var(--line-2);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:600;
+  color:var(--tx-1);cursor:pointer;white-space:nowrap;transition:.12s;box-shadow:none}
+.cat-chip:hover{border-color:var(--tx-3);color:var(--tx-0)}
+.cat-chip.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
+.cat-chip .cdot{width:8px;height:8px;border-radius:3px;background:var(--cat-color,#888)}
+.cat-chip .cn{font-size:10.5px;color:var(--tx-3);font-weight:700}
+.cat-chip.on .cn{color:var(--acc)}
+/* 목록 보기/카드 토글 */
+#lview button{font-size:11.5px;padding:7px 11px}
+/* 소속(킷) 뱃지·태그 */
+.kit-badge{display:inline-flex;align-items:center;gap:3px;background:var(--acc-soft);color:var(--acc);
+  font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;cursor:pointer;
+  border:1px solid transparent;box-shadow:none;vertical-align:1px}
+.kit-badge:hover{border-color:var(--acc-dim)}
+.own-tag{font-size:9px;font-weight:700;color:var(--acc);background:var(--acc-soft);
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.sub-tag{font-size:9px;font-weight:700;color:var(--tx-2);background:var(--bg-3);
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+/* 카드(갤러리) 뷰 */
+#list-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px;padding:4px 0 20px}
+.lcard{background:var(--bg-1);border:1px solid var(--line);border-radius:var(--r-l);padding:13px;transition:.12s}
+.lcard:hover{border-color:var(--line-2);background:var(--bg-2)}
+.lcard.dim{opacity:.45}
+.lcard .thumb{height:74px;border-radius:var(--r-m);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.lcard .thumb svg{width:34px;height:34px}
+.lcard .cid{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--tx-2);font-weight:600}
+.lcard .cname{color:var(--tx-0);font-weight:600;margin:2px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard .crow{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:7px}
+.lcard .cloc{font-size:10.5px;color:var(--tx-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:720px){
+  #list-chips{padding-left:12px;padding-right:12px}
+  #list-cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
 
 /* ═══ 모바일 네비 요소 (데스크톱에선 숨김) ═══ */
 .mobile-only{display:none}
@@ -964,11 +1005,18 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
           <div class="fld wide"><label class="mlab">제품명 *</label>
             <input id="eqf-product" placeholder="예: Sony a7m4 / NANLITE Forza 500"></div>
           <div class="fld"><label class="mlab">세부분류</label>
-            <input id="eqf-sub" placeholder="예: 미러리스 카메라"></div>
+            <input id="eqf-sub" list="eqf-sub-list" placeholder="예: 미러리스 / 탑핸들 / 케이지">
+            <datalist id="eqf-sub-list">
+              <option value="케이지/리그"><option value="탑핸들"><option value="핸드그립/사이드그립">
+              <option value="베이스플레이트/퀵릴리스"><option value="로드/NATO/V락"><option value="매트박스">
+              <option value="팔로우포커스"><option value="필터"><option value="클램프/고정"><option value="무선/인터콤">
+            </datalist></div>
           <div class="fld"><label class="mlab">브랜드</label>
             <input id="eqf-brand" placeholder="예: Sony"></div>
           <div class="fld"><label class="mlab">모델</label>
             <input id="eqf-model" placeholder="예: a7m4"></div>
+          <div class="fld wide"><label class="mlab">소속 장비 (이 부속이 딸린 본체 — 비우면 공용)</label>
+            <select id="eqf-owner"><option value="">(공용)</option></select></div>
           <div class="fld"><label class="mlab">별칭 (현장 호칭)</label>
             <input id="eqf-nick" placeholder="이름이 어려울 때만"></div>
           <div class="fld"><label class="mlab">상태</label>
@@ -1045,6 +1093,12 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
                     <option value="수리필요">수리필요</option>
                     <option value="폐기">폐기</option>
                 </select>
+                <select id="lbrand" onchange="listState.brand=this.value;renderList()"
+                        title="브랜드로 거르기"><option value="">브랜드 전체</option></select>
+                <span class="seg" id="lview">
+                    <button data-v="list" class="on" onclick="setListView('list')" title="목록(표)로 보기">≡ 목록</button>
+                    <button data-v="card" onclick="setListView('card')" title="카드(갤러리)로 보기">▦ 카드</button>
+                </span>
                 <select id="lsort" onchange="listState.sort=this.value;renderList()">
                     <option value="id">자산번호순</option>
                     <option value="cat">카테고리순</option>
@@ -1182,6 +1236,7 @@ select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-
         </div>
         <div id="list-wrap">
             <div id="list-summary"></div>
+            <div id="list-chips"></div>
             <div id="list-body"></div>
         </div>
         <div id="canvas-wrap">
@@ -3181,15 +3236,25 @@ function rowToEq(r) {
         id: r.id, nick: r.nick || '', cat: r.cat, catLabel: r.cat_label || '',
         sub: r.sub || '', product: r.product || '', brand: r.brand || '',
         model: r.model || '', status: r.status || '정상',
-        loc: r.location || '', note: r.note || '',
+        loc: r.location || '', note: r.note || '', owner: r.owner || '',
     };
 }
+// 'owner'(소속 장비) 컬럼이 서버에 아직 없을 수 있다. 없으면 그것 없이 동작한다.
+let ownerColMissing = false;
 async function loadEquipmentFromServer() {
     if (!sbReady()) { eqSource = 'local'; return false; }
+    const SEL_BASE = 'id,nick,cat,cat_label,sub,product,brand,model,status,location,note,sort_order';
     try {
-        const rows = await sbFetch('/rest/v1/gear_equipment'
-            + '?select=id,nick,cat,cat_label,sub,product,brand,model,status,location,note,sort_order'
-            + '&active=eq.true&order=sort_order.asc');
+        let rows;
+        try {                                  // owner 컬럼이 있으면 함께 읽는다
+            rows = await sbFetch('/rest/v1/gear_equipment?select=' + SEL_BASE + ',owner'
+                + '&active=eq.true&order=sort_order.asc');
+            ownerColMissing = false;
+        } catch (e1) {                         // 없으면(400) owner 빼고 다시
+            rows = await sbFetch('/rest/v1/gear_equipment?select=' + SEL_BASE
+                + '&active=eq.true&order=sort_order.asc');
+            ownerColMissing = true;
+        }
         if (!Array.isArray(rows) || !rows.length) throw new Error('장비가 비어 있습니다');
         EQUIPMENT.length = 0;
         rows.forEach(r => EQUIPMENT.push(rowToEq(r)));
@@ -3233,6 +3298,16 @@ function fillEqCatSelect() {
     if (!sel || sel.options.length) return;
     sel.innerHTML = CAT_ORDER.map(c => `<option value="${c}">${c} — ${CAT_NAMES[c] || c}</option>`).join('');
 }
+// 소속 장비 select — 기존 장비를 부모 후보로(카테고리순, 자기 자신 제외)
+function fillEqOwnerSelect(selfId) {
+    const sel = document.getElementById('eqf-owner');
+    if (!sel) return;
+    const ci = c => { const i = CAT_ORDER.indexOf(c); return i < 0 ? 99 : i; };
+    const cand = EQUIPMENT.filter(e => e.id !== selfId)
+        .slice().sort((a, b) => ci(a.cat) - ci(b.cat) || a.id.localeCompare(b.id));
+    sel.innerHTML = '<option value="">(공용)</option>'
+        + cand.map(e => `<option value="${e.id}">${e.id} · ${esc(dispName(e))}</option>`).join('');
+}
 
 // 추가 모드에서 카테고리를 바꾸면 자산번호 미리보기 갱신
 function eqFormCatChanged() {
@@ -3249,6 +3324,9 @@ function openEqForm(id) {
     eqFormId = id || null;
     const eq = id ? EQUIPMENT.find(e => e.id === id) : null;
     const g = k => document.getElementById('eqf-' + k);
+    fillEqOwnerSelect(id);             // 소속 장비 후보 채우기 (자기 자신 제외)
+    const ownerFld = g('owner').closest('.fld');
+    if (ownerFld) ownerFld.style.display = ownerColMissing ? 'none' : '';  // 컬럼 없으면 숨김
     g('err').textContent = '';
     if (eq) {                          // 수정 모드
         document.getElementById('eqf-head').textContent = '장비 수정';
@@ -3259,6 +3337,7 @@ function openEqForm(id) {
         g('sub').value = eq.sub || '';
         g('brand').value = eq.brand || '';
         g('model').value = eq.model || '';
+        g('owner').value = eq.owner || '';
         g('nick').value = eq.nick || '';
         g('status').value = eq.status || '정상';
         g('loc').value = eq.loc || '';
@@ -3270,6 +3349,7 @@ function openEqForm(id) {
         g('cat').value = 'ACC';
         g('id').value = nextAssetId('ACC');
         ['product', 'sub', 'brand', 'model', 'nick', 'loc', 'note'].forEach(k => g(k).value = '');
+        g('owner').value = '';
         g('status').value = '정상';
     }
     document.getElementById('eq-modal').classList.add('on');
@@ -3290,10 +3370,12 @@ async function submitEqForm() {
     btn.disabled = true; err.textContent = '';
     try {
         await ensureAuth();
+        const ownerField = ownerColMissing ? {} : { owner: val('owner') || null };  // 컬럼 없으면 생략
         if (eqFormId) {                // 수정 → PATCH
             await saveEqToServer(eqFormId, {
                 product, sub: val('sub'), brand: val('brand'), model: val('model'),
                 nick: val('nick'), status: g('status').value, location: val('loc'), note: val('note'),
+                ...ownerField,
             });
         } else {                       // 추가 → POST
             const cat = g('cat').value;
@@ -3306,6 +3388,7 @@ async function submitEqForm() {
                     nick: val('nick'), status: g('status').value,
                     location: val('loc'), note: val('note'),
                     sort_order: EQUIPMENT.length + 1, active: true,
+                    ...ownerField,
                 }),
             });
         }
@@ -3684,8 +3767,14 @@ function closePhoto() { document.getElementById('photo-modal').classList.remove(
 // ═══════════════════════════════════════════════════
 //  장비 목록 화면 — 앱의 중심
 // ═══════════════════════════════════════════════════
-let listState = { q: '', status: '', sort: 'id', group: false, cat: 'ALL', only: '' };
+let listState = { q: '', status: '', sort: 'id', group: false, cat: 'ALL', only: '', brand: '', view: 'list' };
 const listSel = new Set();
+// 소속(킷) 펼침 상태 (부모 자산번호). 세트 뷰에선 항상 펼침.
+const kitOpen = new Set();
+function eqKids(id) { return EQUIPMENT.filter(e => e.owner === id); }
+function eqOwned(e) { return !!(e.owner && EQUIPMENT.some(p => p.id === e.owner)); }
+function toggleKit(id) { if (kitOpen.has(id)) kitOpen.delete(id); else kitOpen.add(id); renderList(); }
+function setListView(v) { listState.view = v; renderList(); }
 
 // 사용자가 고친 값(별칭·보관위치·상태·비고)은 원본 위에 덮어쓴다
 function eqEdits() { return (state.eqEdits = state.eqEdits || {}); }
@@ -3758,7 +3847,9 @@ function statClass(st) { return st === '수리필요' ? 'fix' : st === '폐기' 
 function listRows() {
     const q = listState.q.trim().toLowerCase();
     let rows = EQUIPMENT.filter(eq => {
-        if (listState.cat !== 'ALL' && eq.cat !== listState.cat) return false;
+        if (listState.cat === 'SET') { if (!eqKids(eq.id).length) return false; }
+        else if (listState.cat !== 'ALL' && eq.cat !== listState.cat) return false;
+        if (listState.brand && (eq.brand || '') !== listState.brand) return false;
         if (listState.status && (eq.status || '정상') !== listState.status) return false;
         if (listState.only === 'hard' && !hardName(eq)) return false;
         if (listState.only === 'nick' && !eq.nick) return false;
@@ -3912,14 +4003,41 @@ function updateListSummary() {
 }
 function syncListTools() {
     const q = document.getElementById('lq'), st = document.getElementById('lst'),
-          so = document.getElementById('lsort'), gp = document.getElementById('lgrp');
+          so = document.getElementById('lsort'), gp = document.getElementById('lgrp'),
+          br = document.getElementById('lbrand');
     if (q) q.value = listState.q;
     if (st) st.value = listState.status;
     if (so) so.value = listState.sort;
     if (gp) gp.classList.toggle('on', listState.group);
+    if (br) {                               // 브랜드 목록을 데이터에서 새로 채운다
+        const brands = [...new Set(EQUIPMENT.map(e => e.brand).filter(Boolean))].sort();
+        br.innerHTML = '<option value="">브랜드 전체</option>'
+            + brands.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+        br.value = listState.brand;
+    }
+    const vw = document.getElementById('lview');
+    if (vw) vw.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('on', b.dataset.v === listState.view));
     const t = document.getElementById('lsel-tools'), n = document.getElementById('lsel-n');
     if (t) t.style.display = listSel.size ? 'inline-flex' : 'none';
     if (n) n.textContent = `${listSel.size}개 선택`;
+}
+
+// 카테고리 칩 바: [전체] [세트] + 데이터 있는 카테고리 (렌탈샵식 — 한 번에 한 분류)
+function renderListChips() {
+    const el = document.getElementById('list-chips');
+    if (!el) return;
+    const kits = EQUIPMENT.filter(e => eqKids(e.id).length).length;
+    const chip = (key, label, count, colorCat) =>
+        `<button class="cat-chip ${listState.cat === key ? 'on' : ''}" style="--cat-color:var(--cat-${colorCat || 'CAM'})"
+            onclick="listState.cat='${key}';renderList()">${colorCat ? '<span class="cdot"></span>' : ''}${label} <span class="cn">${count}</span></button>`;
+    let h = chip('ALL', '전체', EQUIPMENT.length);
+    if (kits) h += chip('SET', '🔗 세트', kits);
+    for (const c of CAT_ORDER) {
+        const n = EQUIPMENT.filter(e => e.cat === c).length;
+        if (n) h += chip(c, CAT_NAMES[c] || c, n, c);
+    }
+    el.innerHTML = h;
 }
 
 function renderList() {
@@ -3927,12 +4045,15 @@ function renderList() {
     if (!body) return;
     updateListSummary();
     syncListTools();
+    renderListChips();
     const rows = listRows();
     if (!rows.length) {
         body.innerHTML = `<div class="lempty"><b>조건에 맞는 장비가 없어요</b>
             검색어나 필터를 바꿔보세요.</div>`;
         return;
     }
+    if (listState.view === 'card') { body.innerHTML = listCardsHTML(rows); return; }
+
     const TH = [['', ''], ['자산번호', 'id'], ['화면에 뜨는 이름 / 정식 제품명', 'name'], ['별칭 (어려울 때만)', 'nick'],
                 ['카테고리', 'cat'], ['상태', 'status'], ['보관위치', ''], ['비고', ''], ['', '']];
     let h = `<table class="ltable"><thead><tr>
@@ -3944,7 +4065,7 @@ function renderList() {
     });
     h += `</tr></thead><tbody>`;
 
-    if (listState.group) {
+    if (listState.group) {                 // '묶어보기': 같은 제품끼리 수량으로
         groupRows(rows).forEach(g => {
             const first = g.items[0];
             h += rowHTML(first, g.items.length > 1 ? g.items.length : 0, g.items);
@@ -3952,16 +4073,47 @@ function renderList() {
                 g.items.slice(1).forEach(eq => { h += rowHTML(eq, 0, null, true); });
             }
         });
-    } else {
-        rows.forEach(eq => { h += rowHTML(eq); });
+    } else if (listState.cat === 'SET') {  // 세트: 부모 + 딸린 부속(항상 펼침)
+        rows.forEach(p => {
+            h += rowHTML(p, 0, null, false, eqKids(p.id).length);
+            eqKids(p.id).forEach(k => { h += rowHTML(k, 0, null, true); });
+        });
+    } else {                               // 일반: 소속 부속은 부모 아래로 접어서
+        const tops = rows.filter(e => !eqOwned(e));
+        const topIds = new Set(tops.map(e => e.id));
+        tops.forEach(p => {
+            const kids = eqKids(p.id);
+            h += rowHTML(p, 0, null, false, kids.length);
+            if (kids.length && kitOpen.has(p.id)) kids.forEach(k => { h += rowHTML(k, 0, null, true); });
+        });
+        // 부모가 안 보이는데(필터·다른 분류) 자식만 걸린 경우: 자식을 단독으로 표시
+        rows.filter(e => eqOwned(e) && !topIds.has(e.owner)).forEach(e => { h += rowHTML(e); });
     }
     body.innerHTML = h + `</tbody></table>`;
 }
-function rowHTML(eq, qty, group, isSub) {
+// 카드(갤러리) 뷰 — 상위 항목만 카드로
+function listCardsHTML(rows) {
+    const tops = listState.cat === 'SET' ? rows : rows.filter(e => !eqOwned(e));
+    const cards = tops.map(eq => {
+        const col = CAT_COLORS[eq.cat] || '#888';
+        const st = eq.status || '정상';
+        const kids = eqKids(eq.id).length;
+        return `<div class="lcard${st === '폐기' ? ' dim' : ''}">
+            <div class="thumb" style="background:${col}22">${iconSvgFor(eq)}</div>
+            <div class="cid">${eq.id}${kids ? ` · 🔗${kids}` : ''}</div>
+            <div class="cname">${esc(dispName(eq))}</div>
+            <div class="crow"><span class="lstat ${statClass(st)}">${st}</span></div>
+            <div class="crow"><span class="cloc">📦 ${esc(eq.loc || '—')}</span></div>
+        </div>`;
+    }).join('');
+    return `<div id="list-cards">${cards}</div>`;
+}
+function rowHTML(eq, qty, group, isSub, kitN) {
     const col = CAT_COLORS[eq.cat] || '#888';
     const st = eq.status || '정상';
     const sel = listSel.has(eq.id) ? ' sel' : '';
     const dim = st === '폐기' ? ' dim' : '';
+    const parent = isSub && eq.owner ? EQUIPMENT.find(p => p.id === eq.owner) : null;
     return `<tr class="lrow${sel}${dim}${isSub ? ' lsub' : ''}" data-id="${eq.id}">
         <td><input type="checkbox" class="lchk" ${listSel.has(eq.id) ? 'checked' : ''}
              onchange="toggleSel('${eq.id}',this.checked)"></td>
@@ -3971,6 +4123,9 @@ function rowHTML(eq, qty, group, isSub) {
             <div style="min-width:0">
                 <div class="lname">${esc(dispName(eq))}
                     ${qty ? `<span class="lqty">×${qty}</span>` : ''}
+                    ${eq.sub && (isSub || listState.cat === 'ACC') ? `<span class="sub-tag">${esc(eq.sub)}</span>` : ''}
+                    ${kitN ? `<span class="kit-badge" onclick="event.stopPropagation();toggleKit('${eq.id}')" title="딸린 부속 ${kitN}개 — 눌러서 펼치기">🔗${kitN}</span>` : ''}
+                    ${parent ? `<span class="own-tag">소속: ${esc(dispName(parent))}</span>` : ''}
                     ${eq.nick ? '<span class="lnk-tag">별칭</span>' : ''}
                     ${hardName(eq) ? '<span class="lhard" title="모델번호라 부르기 어려워 보여요 — 별칭을 붙이면 좋습니다">?</span>' : ''}</div>
                 <div class="lfull">${esc(eq.product || eq.sub || '')}${eq.brand ? ' · ' + esc(eq.brand) : ''}</div>

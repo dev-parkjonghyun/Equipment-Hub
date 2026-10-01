@@ -63,10 +63,13 @@ H.store['eqf-model'].value='3196';
 H.store['eqf-nick'].value='';
 H.store['eqf-loc'].value='선반 B-1';
 H.store['eqf-note'].value='4x5.65';
+const ownerCam=A.EQ().find(e=>e.cat==='CAM').id;
+H.store['eqf-owner'].value=ownerCam;         // 소속 장비 지정
 await A.submitEqForm();
 t('POST 발생', !!sent && sent.u.includes('/gear_equipment'));
 t('body에 제품명', sent.body.product==='매트박스');
 t('body에 세부분류·브랜드·모델', sent.body.sub==='필터'&&sent.body.brand==='SmallRig'&&sent.body.model==='3196');
+t('body에 소속(owner)', sent.body.owner===ownerCam, sent.body.owner);
 t('body에 보관위치·비고', sent.body.location==='선반 B-1'&&sent.body.note==='4x5.65');
 t('body에 cat_label', typeof sent.body.cat_label==='string'&&sent.body.cat_label.length>0);
 t('body에 active:true', sent.body.active===true);
@@ -93,10 +96,12 @@ let patched=null;
 H.ctx.fetch=mkFetch((u,o)=>{ if(o&&o.method==='PATCH'&&u.includes('/rest/v1/gear_equipment')) patched={u,body:JSON.parse(o.body)}; });
 H.store['eqf-product'].value='새 제품명';
 H.store['eqf-brand'].value='새 브랜드';
+H.store['eqf-owner'].value='';               // 공용으로 변경
 await A.submitEqForm();
 t('PATCH 발생', !!patched && patched.u.includes('id=eq.'+target.id));
 t('바뀐 제품명 전송', patched.body.product==='새 제품명');
 t('바뀐 브랜드 전송', patched.body.brand==='새 브랜드');
+t('소속(owner) 필드 전송', 'owner' in patched.body);
 t('PATCH에는 자산번호·카테고리 없음', patched.body.id===undefined&&patched.body.cat===undefined);
 
 console.log('=== 7. 비로그인·오프라인 가드 ===');

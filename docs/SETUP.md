@@ -251,6 +251,19 @@ SQL Editor에서:
 select cron.schedule('gear-purge', '0 4 * * *', $$select public.gear_purge_expired()$$);
 ```
 
+### 소속(킷) 기능 켜기 — `owner` 컬럼 추가 (선택)
+
+FX6의 탑핸들·핸드그립처럼 **특정 장비에 딸린 부속**을 한 세트(킷)로 묶어 보려면,
+`gear_equipment` 에 `owner` 컬럼 하나만 추가하면 됩니다. SQL Editor에서 **한 번** 실행:
+
+```sql
+alter table public.gear_equipment add column if not exists owner text;
+```
+
+- 넣지 않아도 앱은 그대로 동작합니다(소속 칸만 숨겨짐). 추가하면 장비 추가·수정 폼에 **"소속 장비"** 칸이 생기고,
+  목록 상단 **[세트]** 칩에서 부모 장비 아래로 부속이 묶여 보입니다.
+- 값은 부모의 자산번호(예: `CAM-006`). 여러 장비 공용이면 비워 둡니다.
+
 ---
 
 ## 문제가 생기면
