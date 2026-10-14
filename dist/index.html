@@ -8991,6 +8991,198 @@ function isPhotoPrinter(eq) { return eq && (eq.id === 'ETC-012' || /picturemate|
 function isRoverWagon(eq) { return eq && (eq.id === 'ETC-003' || /rover|웨건|왜건|wagon/i.test(eq.product || '')); }
 
 
+// ── godoxS3Bracket — GODOX S3 보웬스 마운트 변환 브라켓 → MOD-012 ──────────
+// ============================================================================
+//  MOD-012 — GODOX S3  플래시 → 보웬스 마운트 변환 브라켓 (신형)
+//  제조사(Godox) 공식 사양
+//    180.5 × 135.8 × 75.6 mm (7.1 × 5.3 × 3 in) · 35,000원
+//    보웬스 S 마운트 (모디파이어) + 우산 홀 + 라이트 스탠드 마운트(베이비 핀)
+//    틸트 ±90° · 플래시 클램프 간격 35.6 ~ 63.5 mm (1.4 ~ 2.5 in) 조절
+//    실리콘 그립 패드(격자 무늬) 내장 · 일체형(조립 불필요)
+//    호환: Godox V1 / V1 Pro / V100 / V860II · III / TT350 /
+//          AD100 · AD200 · AD200Pro II · AD300 시리즈 (원형·사각 헤드 모두)
+//    ※ B&H 표기 무게 47g 은 오기로 보입니다 (금속 브라켓 기준 약 400g대).
+//      무게는 실측해서 알려주시면 고치겠습니다.
+//
+//  ★ 자산번호 확정 = MOD-012  (허브 등록명 "고독스 S3 스피드라이트 브라켓", 별칭 "브라켓")
+//    ※ 카테고리가 액세서리(ACC)가 아니라 조명 모디파이어(MOD)로 등록돼 있습니다.
+//      임시로 붙였던 ACC-015 는 허브에서 이미 "크로마키"가 쓰고 있어 충돌했습니다.
+//
+//  ★ 원점 = 틸트 회전축 정중앙 (규격 §2 "조명 헤드 = 요크 회전축" 규칙과 동일).
+//    스탠드 탑에 꽂으면 이 축을 중심으로 브라켓이 기울어집니다.
+//  ★ 보웬스 마운트 면(빛 나가는 쪽) = +Z / 위 = +Y / 틸트축 = X / 단위 = m
+//  ★ spec.tiltDeg   -90 ~ +90 (0 = 링이 정면 +Z 를 봄)
+//  ★ spec.jawGap    플래시 클램프 간격 0.0356 ~ 0.0635 m
+//  ★ 공식값은 위 치수·틸트·클램프 범위뿐이고, 링 지름·노브·레버 위치는
+//    제품 사진 실측입니다 (estimated: true).
+//  generate_html.py 삽입용 / 규격: 3D모델_제작규격.md (단위 m / 정면 +Z / 위 +Y)
+//  828 tri / 15 메시  ·  13.2 × 18.5 × 7.8 cm  (공식 13.58 × 18.05 × 7.56)
+// ============================================================================
+
+function godoxS3Bracket(sp) {
+    const g = new THREE.Group();
+
+    const RO = sp.ringOD / 2, RI = sp.ringID / 2, RT = sp.ringT;
+    const black = mat(0x232629, { roughness: 0.82, metalness: 0.08 });   // 무광 블랙 도장
+    const dark = M.black();
+    const steel = M.chrome();
+    const knobM = M.knob();
+    const brass = mat(0xb08a34, { roughness: 0.42, metalness: 0.80 });
+    const pad = M.rubber();
+
+    const box = (w, h, d, x, y, z) => ({ geo: new THREE.BoxGeometry(w, h, d), pos: [x, y, z] });
+    const cylX = (r, len, x, y, z, seg = 10) => ({
+        geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [0, 0, Math.PI / 2] });
+    const cylY = (r, len, x, y, z, seg = 10) => ({
+        geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z] });
+    const cylZ = (r, len, x, y, z, seg = 10) => ({
+        geo: new THREE.CylinderGeometry(r, r, len, seg), pos: [x, y, z], rot: [Math.PI / 2, 0, 0] });
+
+    // ── 틸트 그룹 (원점 = 틸트축) ─────────────────────────────────────────
+    const tg = new THREE.Group();
+    tg.rotation.x = THREE.MathUtils.degToRad(sp.tiltDeg);
+    g.add(tg);
+
+    const yR = sp.ringY;
+
+    // ── 1. 보웬스 S 마운트 링 (도넛 단면 압출) ────────────────────────────
+    const ringShape = new THREE.Shape();
+    ringShape.absarc(0, 0, RO, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, RI, 0, Math.PI * 2, true);
+    ringShape.holes.push(hole);
+    const ringGeo = new THREE.ExtrudeGeometry(ringShape,
+        { depth: RT, bevelEnabled: false, curveSegments: 7 });
+    ringGeo.translate(0, yR, -RT / 2);
+    tg.add(new THREE.Mesh(ringGeo, black));
+
+    // 보웬스 잠금 러그 4개 + 스프링 캐치 2개
+    const lug = [], catch_ = [];
+    for (let i = 0; i < 4; i++) {
+        const a = Math.PI / 4 + i * Math.PI / 2;
+        lug.push({ geo: new THREE.BoxGeometry(0.016, 0.011, 0.014),
+                   pos: [Math.cos(a) * (RO - 0.006), yR + Math.sin(a) * (RO - 0.006), RT / 2 - 0.004],
+                   rot: [0, 0, a] });
+    }
+    tg.add(new THREE.Mesh(geoBatch(lug), dark));
+    for (const s of [-1, 1]) {
+        catch_.push(box(0.006, 0.030, 0.012, s * (RI - 0.004), yR + 0.012, 0));
+        catch_.push(box(0.006, 0.030, 0.012, s * (RI - 0.004), yR - 0.020, 0));
+    }
+    tg.add(new THREE.Mesh(geoBatch(catch_), steel));
+
+    // ── 2. 플래시 클램프 (위 조 = 가변 / 아래 조 = 고정) ──────────────────
+    const gap = THREE.MathUtils.clamp(sp.jawGap, sp.jawMin, sp.jawMax);
+    const yUp = yR + gap / 2, yLo = yR - gap / 2;
+
+    // 가이드 로드 2개 (은색) + 조임 스크류
+    const rods = [];
+    for (const s of [-1, 1]) rods.push(cylY(0.0035, 0.062, s * 0.024, yR + 0.030, 0, 8));
+    rods.push(cylY(0.0030, 0.046, 0, yR + 0.038, 0, 8));         // 조임 나사
+    tg.add(new THREE.Mesh(geoBatch(rods), steel));
+
+    // 위 조 + 아래 조
+    tg.add(new THREE.Mesh(geoBatch([
+        box(0.068, 0.010, 0.050, 0, yUp, 0),                      // 위 조
+        box(0.014, 0.014, 0.050, -0.034, yUp, 0),                 // 위 조 끝단
+        box(0.014, 0.014, 0.050, 0.034, yUp, 0),
+        box(0.076, 0.009, 0.052, 0, yLo, 0),                      // 아래 조(고정)
+    ]), black));
+
+    // 실리콘 그립 패드
+    tg.add(new THREE.Mesh(geoBatch([
+        box(0.060, 0.003, 0.044, 0, yUp - 0.0065, 0),
+        box(0.066, 0.003, 0.046, 0, yLo + 0.006, 0),
+    ]), pad));
+
+    // 상단 조임 노브
+    tg.add(new THREE.Mesh(geoBatch([
+        cylY(0.013, 0.013, 0, yR + 0.0660, 0, 12),
+        cylY(0.006, 0.006, 0, yR + 0.0560, 0, 10),
+    ]), knobM));
+
+    // ── 3. 틸트 조인트 (원점 = 회전축) ────────────────────────────────────
+    tg.add(new THREE.Mesh(geoBatch([
+        box(0.030, 0.028, 0.030, 0, yR - RO + 0.014, 0),          // 링 → 조인트 목
+    ]), black));
+
+    g.add(new THREE.Mesh(geoBatch([
+        cylX(0.017, 0.034, 0, 0, 0, 12),                          // 조인트 허브
+        box(0.030, 0.030, 0.028, 0, -0.012, 0),                   // 조인트 몸통
+    ]), black));
+    g.add(new THREE.Mesh(geoBatch([
+        cylX(0.0075, 0.006, -0.018, 0, 0, 10),                    // 왼쪽 축 부싱(노출부)
+        cylX(0.0075, 0.006, 0.018, 0, 0, 10),                     // 오른쪽 축 부싱
+    ]), brass));
+
+    // 틸트 잠금 레버 — 축에서 왼쪽 뒤 아래로 짧게 뻗는 검정 손잡이
+    const lvDeg = -35;                                            // 레버가 누운 각
+    const lv = new THREE.Group();
+    lv.position.set(-0.019, 0, 0);
+    lv.rotation.x = THREE.MathUtils.degToRad(lvDeg);
+    g.add(lv);
+    lv.add(new THREE.Mesh(geoBatch([
+        cylX(0.010, 0.012, -0.006, 0, 0, 10),                     // 레버 보스
+        box(0.011, 0.040, 0.014, -0.010, -0.020, 0),              // 손잡이 대
+        box(0.013, 0.014, 0.020, -0.010, -0.040, 0),              // 손잡이 끝
+    ]), dark));
+
+    // ── 4. 스탠드 마운트 블록 (5/8" 스피곳 + 우산 홀) ─────────────────────
+    const yS = -0.028;
+    g.add(new THREE.Mesh(geoBatch([
+        box(0.034, 0.036, 0.076, 0, yS, -0.001),                  // 블록
+        box(0.026, 0.008, 0.068, 0, yS - 0.022, -0.001),          // 아래 마감
+    ]), black));
+
+    // 스피곳 구멍(아래) + 우산 홀(가로 관통)
+    const bore = mat(0x0c0e11, { roughness: 0.9, metalness: 0.1 });
+    const bot = new THREE.Mesh(new THREE.CircleGeometry(0.0085, 12), bore);
+    bot.rotation.x = Math.PI / 2;
+    bot.position.set(0, yS - 0.0262, -0.002);
+    g.add(bot);
+    g.add(new THREE.Mesh(geoBatch([
+        cylZ(0.0045, 0.078, 0, yS + 0.006, -0.001, 10),           // 우산 홀
+    ]), bore));
+
+    // 옆면 조임 손잡이
+    g.add(new THREE.Mesh(geoBatch([
+        cylX(0.005, 0.022, 0.026, yS, -0.002, 8),
+        cylX(0.011, 0.010, 0.040, yS, -0.002, 10),
+    ]), knobM));
+
+    return g;
+}
+function isS3Bracket(eq) {
+    return eq && (eq.id === 'MOD-012'
+        || /고독스\s*s3|godox\s*s3|스피드라이트\s*브라켓|보웬스\s*브라켓|s-?type\s*bracket/i.test(eq.product || '')
+        || /^브라켓$/.test(eq.nick || ''));
+}
+
+SPECS['MOD-012'] = {
+    label: 'GODOX S3 보웬스 마운트 변환 브라켓',
+    hubName: '고독스 S3 스피드라이트 브라켓',   // 허브 제품명
+    nick: '브라켓',                              // 허브 별칭
+    brand: 'GODOX',
+    model: 'S3',
+    kind: 'bracket',
+
+    w: 0.1358, h: 0.1805, d: 0.0756,   // 공식
+    mass: 0.42,                         // ★ 추정 (B&H 47g 은 오기로 판단)
+    mount: '보웬스 S 마운트 + 우산 홀 + 5/8" 스탠드',
+    tiltRange: 90,                      // ±도 (공식)
+    jawMin: 0.0356, jawMax: 0.0635,     // 공식 (1.4 ~ 2.5 in)
+
+    tiltDeg: 0,                         // 현재 틸트 각
+    jawGap: 0.050,                      // 현재 클램프 간격
+
+    ringOD: 0.1320,   // ★ 실측 — 보웬스 링 바깥 지름
+    ringID: 0.1020,   // ★ 실측 — 보웬스 링 안 지름
+    ringT: 0.0380,    // ★ 실측 — 링 두께(스피드링 스커트 포함)
+    ringY: 0.0580,    // ★ 실측 — 틸트축 → 링 중심 높이
+    yBase: 0.054,     // 원점(틸트축) → 스탠드 블록 바닥. head 위에 얹을 때 올려줄 높이
+    estimated: true,  // 링 지름·노브·레버는 사진 실측
+};
+
 function tint(cat, o) {
     return mat(parseInt((CAT_COLORS[cat] || '#999999').slice(1), 16),
         Object.assign({ metalness: 0.3, roughness: 0.5 }, o || {}));
@@ -9807,6 +9999,11 @@ function buildItemMesh(eq, it) {
                 const l = pjFmmLens(sp); l.position.set(0, sp.h * 0.5, sp.d); head.add(l);
             } else if (isFresnelMod(eq)) {   // 프레넬 렌즈
                 const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
+            } else if (isS3Bracket(eq) && typeof godoxS3Bracket === 'function') {
+                // GODOX S3 보웬스 변환 브라켓 — 원점이 틸트축이라 yBase 만큼 올려 얹는다
+                const br = godoxS3Bracket(sp);
+                br.position.y = sp.yBase || 0.054;
+                head.add(br);
             } else if (isNanlink(eq)) {      // NANLINK BOX 무선 트랜스미터 (소형 박스)
                 const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
             } else if (isPtGrid(eq) && typeof ecPtii6c === 'function') {  // PavoTube 소프트박스(에그크레이트)

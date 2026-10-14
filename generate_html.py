@@ -7622,6 +7622,11 @@ function buildItemMesh(eq, it) {
                 const l = pjFmmLens(sp); l.position.set(0, sp.h * 0.5, sp.d); head.add(l);
             } else if (isFresnelMod(eq)) {   // 프레넬 렌즈
                 const fr = fl11Fresnel(sp); fr.position.set(0, sp.h * 0.5, 0); head.add(fr);
+            } else if (isS3Bracket(eq) && typeof godoxS3Bracket === 'function') {
+                // GODOX S3 보웬스 변환 브라켓 — 원점이 틸트축이라 yBase 만큼 올려 얹는다
+                const br = godoxS3Bracket(sp);
+                br.position.y = sp.yBase || 0.054;
+                head.add(br);
             } else if (isNanlink(eq)) {      // NANLINK BOX 무선 트랜스미터 (소형 박스)
                 const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
             } else if (isPtGrid(eq) && typeof ecPtii6c === 'function') {  // PavoTube 소프트박스(에그크레이트)
