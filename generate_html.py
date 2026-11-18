@@ -6197,6 +6197,8 @@ function specOf(eqId) {
 const MOUNTED = { LIT: 2.0, MOD: 1.85, CAM: 1.45, MON: 1.30 };
 function defaultHeight(eq) {
     if (isTriflector(eq)) return 1.50;   // Triflector 키트는 스탠드 포함 — 기본 150cm
+    if (typeof isFrameDiffuser === 'function' && isFrameDiffuser(eq)) return 1.00;   // 프레임 디퓨저: 핀 끝 높이
+    if (typeof isRoundReflector === 'function' && isRoundReflector(eq)) return 1.00;  // 원형 반사판: 바닥 가장자리 높이
     if (eq.cat === 'STD' || eq.cat === 'TRP') return specOf(eq.id).h;
     return MOUNTED[eq.cat] !== undefined ? MOUNTED[eq.cat] : 0;
 }
@@ -6998,6 +7000,8 @@ function triflectorMesh(sp) {
     return g;
 }
 function isTriflector(eq) {
+    // 원형 반사판(MOD-011 등)은 '반사판' 글자가 있어도 Triflector 가 아니다
+    if (eq && typeof isRoundReflector === 'function' && isRoundReflector(eq)) return false;
     return eq && (eq.id === 'MOD-010' || /triflector|반사판/i.test(eq.product || ''));
 }
 
@@ -7407,6 +7411,11 @@ function buildItemMesh(eq, it) {
         pan.rotation.x = 1.15; pan.rotation.z = -0.22;
         head.position.y = h; head.rotation.y = yaw;
         grp.add(head);
+    } else if (eq.cat === 'STD' && typeof valensPro2003sk === 'function' && isSidekickStand(eq)) {
+        // ── 사이드킥 스탠드 (VALENS PRO-2003SK) — h3 = 사이드킥 스피곳 끝 높이 ──
+        const st = valensPro2003sk(Object.assign({}, sp, { slideY: h || sp.h }));
+        st.rotation.y = yaw;
+        grp.add(st);
     } else if (eq.cat === 'STD' && isCStandPro(eq)) {   // ── 전용 C스탠드 (VALENS PRO-40T) ──
         const csH = Math.max(sp.hMin, Math.min(sp.hMax, h || sp.h));
         grp.add(valensPro40t(Object.assign({}, sp, { h: csH })));
@@ -7454,6 +7463,14 @@ function buildItemMesh(eq, it) {
                 const isTrp = supId.startsWith('TRP');
                 if (isTerisTripod(supEq)) {              // 전용 삼각대 (Teris) — 헤드 위에 장비 얹음
                     grp.add(terisTsn6cfTripod(Object.assign({}, ssp, { hBowl: standH })));
+                } else if (typeof valensPro2003sk === 'function' && isSidekickStand(supEq)) {
+                    // 사이드킥 스탠드 (PRO-2003SK) — 장비는 옆으로 뻗은 암 끝 스피곳에 얹힌다.
+                    // 장비 위치(원점)가 스피곳이 되도록 스탠드를 암 길이만큼 반대로 비켜 놓는다.
+                    const st = valensPro2003sk(Object.assign({}, ssp, { slideY: standH }));
+                    const ax = ssp.armLen || 0.26;
+                    st.rotation.y = yaw;
+                    st.position.set(-Math.cos(yaw) * ax, 0, Math.sin(yaw) * ax);
+                    grp.add(st);
                 } else if (isCStandPro(supEq)) {         // 전용 C스탠드 (PRO-40T)
                     grp.add(valensPro40t(Object.assign({}, ssp, {
                         h: Math.max(ssp.hMin || 0.5, standH) })));
@@ -7594,6 +7611,27 @@ function buildItemMesh(eq, it) {
                     head.add(m);
                     return;
                 }
+                if (typeof auroraLd60Reflector === 'function' && isRoundReflector(me || { id: p.eqId })) {   // 원형 반사판 — 은색 면이 조명을 향해 앞에 선다
+                    const rf = auroraLd60Reflector(ms);
+                    rf.rotation.y = Math.PI;
+                    rf.position.set(0, yy, modZ + 0.55);
+                    head.add(rf);
+                    return;
+                }
+                if (typeof auroraFfFrameDiffuser === 'function' && isFrameDiffuser(me || { id: p.eqId })) {  // 프레임 디퓨저 — 조명 앞 42cm
+                    const fd = auroraFfFrameDiffuser(ms);
+                    fd.position.set(0, yy - ms.stemL - ms.h / 2, modZ + 0.42);
+                    head.add(fd);
+                    addMesh(head, new THREE.CylinderGeometry(0.008, 0.008, 0.42, 6), M.aluDk(),
+                        0, yy, modZ + 0.21).rotation.x = Math.PI / 2;
+                    return;
+                }
+                if (typeof godoxUlBox === 'function' && isUlBox(me || { id: p.eqId })) {   // 고독스 UL-BOX 소프트박스 (MOD-013)
+                    const ub = godoxUlBox(ms);
+                    ub.position.set(0, yy, modZ);       // 원점 = 스피드 링 마운트 면, 확산면 +Z
+                    head.add(ub);
+                    return;
+                }
                 const isBox = (ms.d || 0.4) > 0.2;
                 if (isBox) {
                     const sb = parabolicSoftbox(Math.max(0.25, (ms.w || 0.9) / 2),
@@ -7631,6 +7669,12 @@ function buildItemMesh(eq, it) {
                 const b = nanlinkBoxWsTb1(sp); b.position.set(0, sp.h * 0.5, 0); head.add(b);
             } else if (isPtGrid(eq) && typeof ecPtii6c === 'function') {  // PavoTube 소프트박스(에그크레이트)
                 const gr = ecPtii6c(sp); gr.position.y = sp.h * 0.5; head.add(gr);
+            } else if (typeof godoxUlBox === 'function' && isUlBox(eq)) {   // 고독스 UL-BOX 소프트박스 (MOD-013) 단독
+                const ub = godoxUlBox(sp); ub.position.set(0, sp.h * 0.5, -sp.d * 0.5); head.add(ub);
+            } else if (typeof auroraLd60Reflector === 'function' && isRoundReflector(eq)) {  // 원형 반사판 (AURORA LD 60)
+                const rf = auroraLd60Reflector(sp); rf.position.y = sp.h * 0.5; head.add(rf);
+            } else if (typeof auroraFfFrameDiffuser === 'function' && isFrameDiffuser(eq)) {  // 프레임 디퓨저 (FF35 구조)
+                head.add(auroraFfFrameDiffuser(sp));   // 원점 = 그립에 물리는 핀 끝
             } else if (sp.kind === 'flag') {  // 프레임 원단 디퓨저·플랙 (납작한 사각 프레임)
                 const y0 = sp.h * 0.5;
                 addMesh(head, new THREE.BoxGeometry(sp.w + 0.03, sp.h + 0.03, 0.012), M.aluDk(), 0, y0, -0.008);
@@ -7783,6 +7827,7 @@ function itemTopY(eq, it) {
     const sp = specOf(eq.id);
     const h = it.h3 || 0;
     if (eq.cat === 'STD' || eq.cat === 'TRP') return h + 0.09;
+    if (typeof isFrameDiffuser === 'function' && isFrameDiffuser(eq)) return h + (sp.stemL || 0) + sp.h;
     if (MOUNTED[eq.cat] !== undefined) return h + sp.h + 0.04;
     return h + sp.h;
 }
